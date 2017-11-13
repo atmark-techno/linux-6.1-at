@@ -60,6 +60,10 @@ void __init imx6_enet_mac_init(const char *enet_compat, const char *ocotp_compat
 
 		from = enet_np;
 
+		/* "no-mac-init" required for use MAC address setting by u-boot */
+		if (of_property_read_bool(enet_np, "no-mac-init"))
+			goto put_enet_node;
+
 		if (!of_get_mac_address(enet_np, tmpaddr))
 			goto put_enet_node;
 
