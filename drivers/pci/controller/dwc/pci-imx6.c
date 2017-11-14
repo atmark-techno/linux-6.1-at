@@ -82,6 +82,7 @@ struct imx6_pcie_drvdata {
 
 struct imx6_pcie {
 	struct dw_pcie		*pci;
+	int			dis_gpio;
 	int			reset_gpio;
 	bool			gpio_active_high;
 	bool			link_is_up;
@@ -1550,6 +1551,21 @@ static int imx6_pcie_probe(struct platform_device *pdev)
 		imx6_pcie->local_addr = 0;
 
 	/* Fetch GPIOs */
+		imx6_pcie->dis_gpio = of_get_named_gpio(node, "disable-gpio", 0);
+	if (gpio_is_valid(imx6_pcie->dis_gpio)) {
+		unsigned long flags;
+		if (of_property_read_bool(node, "disable-gpio-open-drain"))
+			flags = GPIOF_IN;
+		else
+			flags = GPIOF_OUT_INIT_HIGH;
+		ret = devm_gpio_request_one(&pdev->dev, imx6_pcie->dis_gpio,
+					    flags, "PCIe DIS");
+		if (ret) {
+			dev_err(&pdev->dev, "unable to get disable gpio\n");
+			return ret;
+		}
+	}
+
 	imx6_pcie->reset_gpio = of_get_named_gpio(node, "reset-gpio", 0);
 	imx6_pcie->gpio_active_high = of_property_read_bool(node,
 						"reset-gpio-active-high");
