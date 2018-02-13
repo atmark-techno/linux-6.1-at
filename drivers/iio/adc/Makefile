@@ -36,6 +36,7 @@ obj-$(CONFIG_AXP20X_ADC) += axp20x_adc.o
 obj-$(CONFIG_AXP288_ADC) += axp288_adc.o
 obj-$(CONFIG_BCM_IPROC_ADC) += bcm_iproc_adc.o
 obj-$(CONFIG_BERLIN2_ADC) += berlin2-adc.o
+obj-$(CONFIG_BMIC_ADC) += bmic_adc.o
 obj-$(CONFIG_CC10001_ADC) += cc10001_adc.o
 obj-$(CONFIG_CPCAP_ADC) += cpcap-adc.o
 obj-$(CONFIG_DA9150_GPADC) += da9150-gpadc.o
