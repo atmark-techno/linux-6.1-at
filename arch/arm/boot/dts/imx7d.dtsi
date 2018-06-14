@@ -78,7 +78,7 @@
 	};
 
 	soc: soc {
-		busfreq {
+		busfreq: busfreq {
 			compatible = "fsl,imx_busfreq";
 			fsl,max_ddr_freq = <533000000>;
 			clocks = <&clks IMX7D_OSC_24M_CLK>, <&clks IMX7D_MAIN_AXI_ROOT_SRC>,
@@ -92,6 +92,7 @@
 					"pfd1_332m", "ahb", "axi";
 			interrupts = <0 112 0x04>, <0 113 0x04>;
 			interrupt-names = "irq_busfreq_0", "irq_busfreq_1";
+			status = "disabled";
 		};
 
 		ocrams_ddr: sram@900000 {
