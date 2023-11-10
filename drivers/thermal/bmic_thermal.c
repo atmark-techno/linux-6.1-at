@@ -138,14 +138,12 @@ regulator_disable:
 	return ret;
 }
 
-static int bmic_thermal_remove(struct i2c_client *client)
+static void bmic_thermal_remove(struct i2c_client *client)
 {
 	struct bmic_thermal *thermal = i2c_get_clientdata(client);
 
 	regulator_disable(thermal->ref);
 	thermal_zone_device_unregister(thermal->tz);
-
-	return 0;
 }
 
 static const struct i2c_device_id bmic_thermal_id[] = {
