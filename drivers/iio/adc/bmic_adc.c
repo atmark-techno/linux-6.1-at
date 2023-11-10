@@ -438,7 +438,6 @@ static const struct iio_info bmic_adc_info = {
 	.write_event_config = bmic_adc_write_event_config,
 	.read_event_value = bmic_adc_read_event_value,
 	.write_event_value = bmic_adc_write_event_value,
-	.driver_module = THIS_MODULE,
 };
 
 static int bmic_adc_probe(struct i2c_client *client,
@@ -521,15 +520,13 @@ regulator_disable:
 	return ret;
 }
 
-static int bmic_adc_remove(struct i2c_client *client)
+static void bmic_adc_remove(struct i2c_client *client)
 {
 	struct iio_dev *iio = i2c_get_clientdata(client);
 	struct bmic_adc *adc = iio_priv(iio);
 
 	iio_device_unregister(iio);
 	regulator_disable(adc->ref);
-
-	return 0;
 }
 
 static const struct i2c_device_id bmic_adc_id[] = {
