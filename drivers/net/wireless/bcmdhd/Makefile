@@ -667,7 +667,7 @@ ifeq ($(CONFIG_BCMDHD),m)
 endif
 
 ARCH ?= arm64
-BCMDHD_ROOT ?= $(src)
+BCMDHD_ROOT ?= $(srctree)/$(src)
 #$(warning "BCMDHD_ROOT=$(BCMDHD_ROOT)")
 KERNEL_VER := $(shell cat $(LINUXDIR)/include/config/kernel.release)
 EXTRA_CFLAGS = $(DHDCFLAGS)
