@@ -1008,6 +1008,12 @@ config GPIO_ADNP
 	  enough to represent all pins, but the driver will assume a
 	  register layout for 64 pins (8 registers).
 
+config GPIO_BMIC
+	tristate "Atmark Techno BMIC GPIO"
+	depends on OF_GPIO
+	help
+	  Say yes here to build support for Atmark Techno BMIC GPIO.
+
 config GPIO_GW_PLD
 	tristate "Gateworks PLD GPIO Expander"
 	depends on OF_GPIO
