@@ -895,6 +895,7 @@ dtb-$(CONFIG_SOC_IMX7D) += \
 	armadillo_x1-ecspi4_mcp3202.dtb \
 	armadillo_x1-extboard-eva01-usbhost.dtb \
 	armadillo_x1-extboard-eva01-usbdevice.dtb \
+	armadillo_iotg_g3l.dtb \
 	x1-minimal.dtb
 dtb-$(CONFIG_SOC_IMX7ULP) += \
 	imx7ulp-com.dtb \
