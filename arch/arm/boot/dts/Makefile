@@ -888,6 +888,13 @@ dtb-$(CONFIG_SOC_IMX7D) += \
 	imx7s-mba7.dtb \
 	imx7s-warp.dtb \
 	armadillo_iotg_g3.dtb \
+	armadillo_x1.dtb \
+	armadillo_x1-fec1.dtb \
+	armadillo_x1-usbotg2.dtb \
+	armadillo_x1-i2c1_lm75b.dtb \
+	armadillo_x1-ecspi4_mcp3202.dtb \
+	armadillo_x1-extboard-eva01-usbhost.dtb \
+	armadillo_x1-extboard-eva01-usbdevice.dtb \
 	x1-minimal.dtb
 dtb-$(CONFIG_SOC_IMX7ULP) += \
 	imx7ulp-com.dtb \
