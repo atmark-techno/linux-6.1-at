@@ -897,6 +897,7 @@ dtb-$(CONFIG_SOC_IMX7D) += \
 	armadillo_x1-extboard-eva01-usbdevice.dtb \
 	armadillo_iotg_g3l.dtb \
 	armadillo_iotg_g3_m1.dtb \
+	armadillo_iotg_g3_w2.dtb \
 	x1-minimal.dtb
 dtb-$(CONFIG_SOC_IMX7ULP) += \
 	imx7ulp-com.dtb \
@@ -1770,4 +1771,11 @@ dtb-$(CONFIG_ARCH_ASPEED) += \
 	aspeed-bmc-vegman-sx20.dtb
 
 ifeq ($(CONFIG_OF_RESOLVE),y)
+DTC_FLAGS_armadillo_iotg_g3 := -@
+DTC_FLAGS_armadillo_iotg_g3_m1 := -@
+DTC_FLAGS_armadillo_iotg_g3_w2 := -@
+DTC_FLAGS_armadillo_x1 := -@
+DTC_FLAGS_armadillo_x1-extboard-eva01-usbhost := -@
+DTC_FLAGS_armadillo_x1-extboard-eva01-usbdevice := -@
+DTC_FLAGS_armadillo_iotg_g3l := -@
 endif
