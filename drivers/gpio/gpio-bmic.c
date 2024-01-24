@@ -7,6 +7,7 @@
 #include <linux/init.h>
 #include <linux/gpio.h>
 #include <linux/i2c.h>
+#include <linux/pm_runtime.h>
 
 #define GPIO_BMIC_REG_OFFSET	1
 
@@ -50,7 +51,9 @@ static int gpio_bmic_gpio_direction_output(struct gpio_chip *gc,
 	if (output == gpio->reg_output)
 		goto exit;
 
+	pm_runtime_resume_and_get(&gpio->client->adapter->dev);
 	ret = i2c_smbus_write_byte_data(gpio->client, REG_VALUE, output);
+	pm_runtime_put(&gpio->client->adapter->dev);
 	if (ret < 0)
 		goto exit;
 
