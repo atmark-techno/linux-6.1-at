@@ -43,7 +43,7 @@ static int bmic_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	if (ret < 0)
 		return ret;
 
-	rtc_time_to_tm(time, tm);
+	rtc_time64_to_tm(time, tm);
 
 	return 0;
 }
@@ -53,7 +53,7 @@ static int bmic_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	struct bmic_rtc *rtc = dev_get_drvdata(dev);
 	unsigned long time;
 
-	rtc_tm_to_time(tm, &time);
+	time = rtc_tm_to_time64(tm);
 
 	return i2c_smbus_write_i2c_block_data(rtc->i2c, REG_TIME,
 					      sizeof(u32), (u8 *)&time);
@@ -114,7 +114,7 @@ static int bmic_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alm)
 					    sizeof(u32), (u8 *)&time);
 	if (ret < 0)
 		return ret;
-	rtc_time_to_tm(time, &alm->time);
+	rtc_time64_to_tm(time, &alm->time);
 
 	ret = i2c_smbus_read_byte_data(rtc->i2c, REG_INT_CONF);
 	if (ret < 0)
@@ -130,7 +130,7 @@ static int bmic_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 	unsigned long time;
 	int ret;
 
-	rtc_tm_to_time(&alm->time, &time);
+	time = rtc_tm_to_time64(&alm->time);
 
 	ret = i2c_smbus_write_i2c_block_data(rtc->i2c, REG_ALARM,
 					     sizeof(u32), (u8 *)&time);
@@ -148,10 +148,6 @@ static struct rtc_class_ops bmic_rtc_ops = {
 	.alarm_irq_enable = bmic_rtc_alarm_irq_enable,
 };
 
-static int bmic_rtc_remove(struct i2c_client *client)
-{
-	return 0;
-}
 
 static int bmic_rtc_probe(struct i2c_client *client,
 			  const struct i2c_device_id *id)
@@ -253,7 +249,6 @@ static struct i2c_driver bmic_rtc_driver = {
 		.of_match_table = of_match_ptr(bmic_rtc_of_match),
 	},
 	.probe		= bmic_rtc_probe,
-	.remove		= bmic_rtc_remove,
 	.id_table	= bmic_rtc_id,
 };
 module_i2c_driver(bmic_rtc_driver);
