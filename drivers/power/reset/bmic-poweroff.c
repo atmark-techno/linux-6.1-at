@@ -219,7 +219,7 @@ static int bmic_poweroff_probe(struct i2c_client *client,
 	return 0;
 }
 
-static int bmic_poweroff_remove(struct i2c_client *client)
+static void bmic_poweroff_remove(struct i2c_client *client)
 {
 	struct bmic_restart *bmic_restart = dev_get_drvdata(&client->dev);
 	int ret;
@@ -230,8 +230,6 @@ static int bmic_poweroff_remove(struct i2c_client *client)
 
 	if (pm_power_off == &bmic_poweroff_do_poweroff)
 		pm_power_off = NULL;
-
-	return 0;
 }
 
 static const struct i2c_device_id bmic_poweroff_id[] = {
