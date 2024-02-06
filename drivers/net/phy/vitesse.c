@@ -54,6 +54,17 @@
 #define MII_VSC8244_AUXCONSTAT_GBIT	0x0010
 #define MII_VSC8244_AUXCONSTAT_100	0x0008
 
+/* Vitesse LED Mode Select Register */
+#define MII_VSC8501_LED_SEL		0x1d
+#define MII_VSC8501_LEDSEL_LED2_SHIFT	(8)
+#define MII_VSC8501_LEDSEL_LED1_SHIFT	(4)
+#define MII_VSC8501_LEDSEL_LED0_SHIFT	(0)
+#define MII_VSC8501_LEDSEL_LED2_MASK	(0xf << MII_VSC8501_LEDSEL_LED2_SHIFT)
+#define MII_VSC8501_LEDSEL_LED1_MASK	(0xf << MII_VSC8501_LEDSEL_LED1_SHIFT)
+#define MII_VSC8501_LEDSEL_LED0_MASK	(0xf << MII_VSC8501_LEDSEL_LED0_SHIFT)
+#define MII_VSC8501_LEDSEL_FORCE_OFF	(14)
+#define MII_VSC8501_LEDSEL_FORCE_ON	(15)
+
 #define MII_VSC8221_AUXCONSTAT_INIT	0x0004 /* need to set this bit? */
 #define MII_VSC8221_AUXCONSTAT_RESERVED	0x0004
 
@@ -66,6 +77,7 @@
 
 #define PHY_ID_VSC8234			0x000fc620
 #define PHY_ID_VSC8244			0x000fc6c0
+#define PHY_ID_VSC8501			0x00070530
 #define PHY_ID_VSC8572			0x000704d0
 #define PHY_ID_VSC8601			0x00070420
 #define PHY_ID_VSC7385			0x00070450
@@ -79,6 +91,12 @@
 MODULE_DESCRIPTION("Vitesse PHY driver");
 MODULE_AUTHOR("Kriston Carson");
 MODULE_LICENSE("GPL");
+
+enum vsc8501_led_state {
+	VSC8501_LED_ORANGE,
+	VSC8501_LED_GREEN,
+	VSC8501_LED_OFF,
+};
 
 static int vsc824x_add_skew(struct phy_device *phydev)
 {
@@ -287,6 +305,7 @@ static int vsc82xx_config_intr(struct phy_device *phydev)
 		err = phy_write(phydev, MII_VSC8244_IMASK,
 			(phydev->drv->phy_id == PHY_ID_VSC8234 ||
 			 phydev->drv->phy_id == PHY_ID_VSC8244 ||
+			 phydev->drv->phy_id == PHY_ID_VSC8501 ||
 			 phydev->drv->phy_id == PHY_ID_VSC8572 ||
 			 phydev->drv->phy_id == PHY_ID_VSC8601) ?
 				MII_VSC8244_IMASK_MASK :
@@ -311,6 +330,7 @@ static irqreturn_t vsc82xx_handle_interrupt(struct phy_device *phydev)
 	int irq_status, irq_mask;
 
 	if (phydev->drv->phy_id == PHY_ID_VSC8244 ||
+	    phydev->drv->phy_id == PHY_ID_VSC8501 ||
 	    phydev->drv->phy_id == PHY_ID_VSC8572 ||
 	    phydev->drv->phy_id == PHY_ID_VSC8601)
 		irq_mask = MII_VSC8244_ISTAT_MASK;
@@ -401,6 +421,78 @@ static int vsc82x4_config_aneg(struct phy_device *phydev)
 	return genphy_config_aneg(phydev);
 }
 
+static int vsc8501_set_led(struct phy_device *phydev,
+			   enum vsc8501_led_state state)
+{
+	int ledsel;
+	int ret;
+
+	ret = genphy_read_status(phydev);
+	if (ret < 0) /* error */
+		return ret;
+
+	ledsel = phy_read(phydev, MII_VSC8501_LED_SEL);
+	if (ledsel < 0)
+		return ledsel;
+
+	ledsel &= ~(MII_VSC8501_LEDSEL_LED1_MASK |
+		    MII_VSC8501_LEDSEL_LED2_MASK);
+
+	switch(state) {
+	case VSC8501_LED_ORANGE:
+		ledsel |= MII_VSC8501_LEDSEL_FORCE_OFF <<
+			  MII_VSC8501_LEDSEL_LED1_SHIFT;
+		ledsel |= MII_VSC8501_LEDSEL_FORCE_ON <<
+			  MII_VSC8501_LEDSEL_LED2_SHIFT;
+		break;
+	case VSC8501_LED_GREEN:
+		ledsel |= MII_VSC8501_LEDSEL_FORCE_ON <<
+			  MII_VSC8501_LEDSEL_LED1_SHIFT;
+		ledsel |= MII_VSC8501_LEDSEL_FORCE_OFF <<
+			  MII_VSC8501_LEDSEL_LED2_SHIFT;
+		break;
+	case VSC8501_LED_OFF:
+		ledsel |= MII_VSC8501_LEDSEL_FORCE_OFF <<
+			  MII_VSC8501_LEDSEL_LED1_SHIFT;
+		ledsel |= MII_VSC8501_LEDSEL_FORCE_OFF <<
+			  MII_VSC8501_LEDSEL_LED2_SHIFT;
+		break;
+	};
+
+	return phy_write(phydev, MII_VSC8501_LED_SEL, ledsel);
+}
+
+static int vsc8501_read_status(struct phy_device *phydev)
+{
+	enum vsc8501_led_state state = VSC8501_LED_OFF;
+
+	if (!phydev->link)
+		goto out;
+
+	switch(phydev->speed) {
+	case SPEED_1000:
+		state = VSC8501_LED_ORANGE;
+		break;
+	case SPEED_100:
+		state = VSC8501_LED_GREEN;
+		break;
+	case SPEED_10:
+		/* LED_OFF */
+		break;
+	};
+
+out:
+	return vsc8501_set_led(phydev, state);
+}
+
+static int vsc8501_suspend(struct phy_device *phydev)
+{
+	/* turn off LED */
+	vsc8501_set_led(phydev, VSC8501_LED_OFF);
+
+	return genphy_suspend(phydev);
+}
+
 /* Vitesse 82xx */
 static struct phy_driver vsc82xx_driver[] = {
 {
@@ -421,6 +513,18 @@ static struct phy_driver vsc82xx_driver[] = {
 	.config_aneg	= &vsc82x4_config_aneg,
 	.config_intr	= &vsc82xx_config_intr,
 	.handle_interrupt = &vsc82xx_handle_interrupt,
+}, {
+	.phy_id		= PHY_ID_VSC8501,
+	.name		= "Vitesse VSC8501",
+	.phy_id_mask	= 0x000ffff0,
+	/* PHY_GBIT_FEATURES */
+	.config_init	= &vsc824x_config_init,
+	.config_aneg	= &vsc82x4_config_aneg,
+	.read_status	= &vsc8501_read_status,
+	.config_intr	= &vsc82xx_config_intr,
+	.handle_interrupt = &vsc82xx_handle_interrupt,
+	.suspend	= &vsc8501_suspend,
+	.resume		= genphy_resume,
 }, {
 	.phy_id         = PHY_ID_VSC8572,
 	.name           = "Vitesse VSC8572",
@@ -508,6 +612,7 @@ module_phy_driver(vsc82xx_driver);
 static struct mdio_device_id __maybe_unused vitesse_tbl[] = {
 	{ PHY_ID_VSC8234, 0x000ffff0 },
 	{ PHY_ID_VSC8244, 0x000fffc0 },
+	{ PHY_ID_VSC8501, 0x000ffff0 },
 	{ PHY_ID_VSC8572, 0x000ffff0 },
 	{ PHY_ID_VSC7385, 0x000ffff0 },
 	{ PHY_ID_VSC7388, 0x000ffff0 },
