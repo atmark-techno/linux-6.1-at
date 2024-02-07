@@ -47,6 +47,25 @@ static inline const struct group_desc *imx_pinctrl_find_group_by_name(
 	return NULL;
 }
 
+static inline const struct function_desc *imx_pinctrl_find_function_by_name(
+				struct pinctrl_dev *pctldev,
+				const char *name)
+{
+	const struct function_desc *func;
+
+	int i;
+
+	for (i = 0; i < pctldev->num_functions; i++) {
+		func = pinmux_generic_get_function(pctldev, i);
+		if (func && !strcmp(func->name, name))
+			return func;
+	}
+
+	return NULL;
+}
+
+static int imx_pinctrl_inject_function(struct device_node *np,
+				       struct imx_pinctrl *ipctl);
 static void imx_pin_dbg_show(struct pinctrl_dev *pctldev, struct seq_file *s,
 		   unsigned offset)
 {
@@ -72,10 +91,18 @@ static int imx_dt_node_to_map(struct pinctrl_dev *pctldev,
 	 */
 	grp = imx_pinctrl_find_group_by_name(pctldev, np->name);
 	if (!grp) {
+		if (!(pctldev->dev->of_node == np->parent)) {
+			imx_pinctrl_inject_function(np->parent, ipctl);
+			grp = imx_pinctrl_find_group_by_name(pctldev, np->name);
+			if (grp)
+				goto found_group;
+		}
+
 		dev_err(ipctl->dev, "unable to find group for node %pOFn\n", np);
 		return -EINVAL;
 	}
 
+found_group:
 	if (info->flags & IMX_USE_SCU) {
 		map_num += grp->num_pins;
 	} else {
@@ -720,6 +747,30 @@ static bool imx_pinctrl_dt_is_flat_functions(struct device_node *np)
 	}
 
 	return true;
+}
+
+static int imx_pinctrl_inject_function(struct device_node *np,
+				       struct imx_pinctrl *ipctl)
+{
+	struct function_desc *func;
+	struct pinctrl_dev *pctl = ipctl->pctl;
+
+	if (imx_pinctrl_find_function_by_name(pctl, np->name)) {
+		dev_err(ipctl->dev, "duplicated group name \'%s\'\n", np->name);
+		return -EINVAL;
+	}
+
+	func = devm_kzalloc(ipctl->dev, sizeof(*func), GFP_KERNEL);
+	if (!func)
+		return -ENOMEM;
+
+	mutex_lock(&pctl->mutex);
+	radix_tree_insert(&pctl->pin_function_tree, pctl->num_functions, func);
+	mutex_unlock(&pctl->mutex);
+
+	pctl->num_groups += of_get_child_count(np);
+
+	return imx_pinctrl_parse_functions(np, ipctl, pctl->num_functions++);
 }
 
 static int imx_pinctrl_probe_dt(struct platform_device *pdev,
