@@ -31,6 +31,8 @@ AFLAGS_imx7d_low_power_idle.o :=-Wa,-march=armv7-a
 obj-$(CONFIG_SOC_IMX7D_CA7) += cpuidle-imx7d.o imx7d_low_power_idle.o
 endif
 
+obj-$(CONFIG_AIOTG_ADDON_AUTO_DETECT) += armadillo_iotg_addon/
+
 ifdef CONFIG_SND_SOC_IMX_PCM_FIQ
 obj-y += ssi-fiq.o
 obj-y += ssi-fiq-ksym.o

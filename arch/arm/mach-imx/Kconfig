@@ -250,6 +250,11 @@ config SOC_IMX7D
 	help
 	  This enables support for Freescale i.MX7 Dual processor.
 
+config AIOTG_ADDON_AUTO_DETECT
+	bool "Add-On Module Auto Detect"
+	depends on SOC_IMX7D
+	select OF_OVERLAY
+
 config SOC_IMX7ULP
 	bool "i.MX7ULP support"
 	select CLKSRC_IMX_TPM
