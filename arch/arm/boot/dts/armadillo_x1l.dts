@@ -474,8 +474,8 @@
 	assigned-clock-parents = <&clks IMX7D_PLL_SYS_MAIN_240M_CLK>;
 	assigned-clock-rates = <0>, <80000000>;
 	rs485-rts-active-high;
-	rs485-enabled-at-boot-time;
-	rts-gpio = <&gpio3 2 0>;
+	linux,rs485-enabled-at-boot-time;
+	rts-gpios = <&gpio3 2 0>;
 	fsl,rs485-duplex-type = "gpio";
 	fsl,rs485-duplex-gpio = <&gpio3 5 GPIO_ACTIVE_HIGH>;
 	fsl,rs485-duplex-active-low;
