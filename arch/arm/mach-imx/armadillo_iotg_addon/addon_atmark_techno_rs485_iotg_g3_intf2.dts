@@ -35,9 +35,9 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl_uart2>;
 
-			rs485-enabled-at-boot-time;
+			linux,rs485-enabled-at-boot-time;
 			rs485-rts-active-high;
-			rts-gpio = <&gpio4 2 0>;
+			rts-gpios = <&gpio4 2 0>;
 			fsl,uart-has-rtscts;
 			status = "okay";
 		};

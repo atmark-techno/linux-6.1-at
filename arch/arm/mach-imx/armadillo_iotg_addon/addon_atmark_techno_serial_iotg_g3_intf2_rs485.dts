@@ -15,7 +15,7 @@
 	fragment@1 {
 		target = <&uart2>;
 		__overlay__ {
-			rs485-enabled-at-boot-time;
+			linux,rs485-enabled-at-boot-time;
 			rs485-rts-active-high;
 		};
 	};
