@@ -43,6 +43,8 @@
 #endif /* defined(BCMSDIO) */
 #endif
 
+#include <linux/of.h>
+
 uint config_msg_level = CONFIG_ERROR_LEVEL | CONFIG_MSG_LEVEL;
 uint dump_msg_level = 0;
 
@@ -1312,6 +1314,8 @@ dhd_conf_update_path(dhd_pub_t *dhd)
 
 }
 
+static void
+dhd_conf_read_config_dt(dhd_pub_t *dhd);
 void
 dhd_conf_set_path_params(dhd_pub_t *dhd)
 {
@@ -1326,6 +1330,10 @@ dhd_conf_set_path_params(dhd_pub_t *dhd)
 	CONFIG_MSG("Final conf_path=%s\n", info->conf_path);
 
 	dhd_conf_read_config(dhd, info->conf_path);
+
+	/* Override settings in config file if of_node is present */
+	dhd_conf_read_config_dt(dhd);
+
 #ifdef DHD_TPUT_PATCH
 	dhd_conf_dump_tput_patch(dhd);
 #endif
@@ -5758,6 +5766,44 @@ err:
 		fwpkg_close_firmware_img(fw);
 
 	return bcmerror;
+}
+
+static void
+dhd_conf_read_config_dt(dhd_pub_t *dhd)
+{
+	struct device_node *np;
+	struct property *prop;
+	const char *data;
+	char *bufp;
+
+	bufp = MALLOC(dhd->osh, MAXSZ_BUF);
+	if (!bufp) {
+		CONFIG_ERROR("Failed to allocate memory %d bytes\n", MAXSZ_BUF);
+		return;
+	}
+
+	np = of_find_node_by_name(NULL, "bcmdhd-configs");
+	if (!np) {
+		CONFIG_MSG("Could not find node for bcmdhd-configs\n");
+		goto out;
+	}
+
+	for_each_property_of_node(np, prop) {
+		if (of_property_read_string(np, prop->name, &data))
+			continue;
+
+		snprintf(bufp, MAXSZ_BUF, "%s=%s", prop->name, data);
+		if (!strcmp(prop->name, "ccode") ||
+		    !strcmp(prop->name, "regrev") ||
+		    !strcmp(prop->name, "country_list"))
+			dhd_conf_read_country(dhd, bufp, strlen(prop->name) + 1);
+	}
+
+	of_node_put(np);
+
+out:
+	if (bufp)
+		MFREE(dhd->osh, bufp, MAXSZ_BUF);
 }
 
 #if defined(BCMSDIO) || defined(BCMPCIE)

@@ -39,6 +39,7 @@
 #
 
 config BCMDHD
+	depends on OF
 	tristate "Broadcom FullMAC wireless cards support"
 	default m
 	help
