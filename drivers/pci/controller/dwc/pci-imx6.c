@@ -85,6 +85,8 @@ struct imx6_pcie {
 	int			dis_gpio;
 	int			reset_gpio;
 	bool			gpio_active_high;
+	int			clkreq_gpio;
+	int			wake_gpio;
 	bool			link_is_up;
 	struct clk		*pcie_bus;
 	struct clk		*pcie_phy;
@@ -829,6 +831,12 @@ static int imx6_pcie_deassert_core_reset(struct imx6_pcie *imx6_pcie)
 	struct dw_pcie *pci = imx6_pcie->pci;
 	struct device *dev = pci->dev;
 
+	if (gpio_is_valid(imx6_pcie->clkreq_gpio))
+		gpio_direction_input(imx6_pcie->clkreq_gpio);
+
+	if (gpio_is_valid(imx6_pcie->wake_gpio))
+		gpio_direction_input(imx6_pcie->wake_gpio);
+
 	switch (imx6_pcie->drvdata->variant) {
 	case IMX8MQ:
 	case IMX8MQ_EP:
@@ -1562,6 +1570,30 @@ static int imx6_pcie_probe(struct platform_device *pdev)
 					    flags, "PCIe DIS");
 		if (ret) {
 			dev_err(&pdev->dev, "unable to get disable gpio\n");
+			return ret;
+		}
+	}
+
+	imx6_pcie->clkreq_gpio = of_get_named_gpio(node, "clkreq-gpio", 0);
+	if (gpio_is_valid(imx6_pcie->clkreq_gpio)) {
+		ret = devm_gpio_request_one(&pdev->dev,
+					    imx6_pcie->clkreq_gpio,
+					    GPIOF_OUT_INIT_LOW,
+					    "PCIe reference clock request.");
+		if (ret) {
+			dev_err(&pdev->dev, "unable to get clkreq gpio\n");
+			return ret;
+		}
+	}
+
+	imx6_pcie->wake_gpio = of_get_named_gpio(node, "wake-gpio", 0);
+	if (gpio_is_valid(imx6_pcie->wake_gpio)) {
+		ret = devm_gpio_request_one(&pdev->dev,
+					    imx6_pcie->wake_gpio,
+					    GPIOF_OUT_INIT_LOW,
+					    "PCIe link reactivation.");
+		if (ret) {
+			dev_err(&pdev->dev, "unable to get wake gpio\n");
 			return ret;
 		}
 	}
