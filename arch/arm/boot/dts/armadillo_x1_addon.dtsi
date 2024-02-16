@@ -101,4 +101,17 @@
 			>;
 		};
 	};
+
+	pinctrl_uart7: uart7grp {
+		fsl,pins = <
+		>;
+	};
+};
+
+&uart7 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart7>;
+	assigned-clocks = <&clks IMX7D_UART7_ROOT_SRC>, <&clks IMX7D_UART7_ROOT_DIV>;
+	assigned-clock-parents = <&clks IMX7D_PLL_SYS_MAIN_240M_CLK>;
+	assigned-clock-rates = <0>, <80000000>;
 };
