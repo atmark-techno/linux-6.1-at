@@ -295,7 +295,7 @@ CONFIG_PCI_EPF_TEST=y
 CONFIG_DEVTMPFS=y
 CONFIG_DEVTMPFS_MOUNT=y
 # CONFIG_STANDALONE is not set
-CONFIG_EXTRA_FIRMWARE="ar3k/AthrBT_0x11020000.dfu ar3k/ramps_0x11020000_40.dfu ar3k/AthrBT_0x11020100.dfu ar3k/ramps_0x11020100_40.dfu ti-connectivity/wl18xx-conf.bin ti-connectivity/wl1271-nvs.bin ti-connectivity/wl18xx-fw-4.bin ti-connectivity/TIInit_11.8.32.bts bcmdhd/clm_bcm43752a2_pcie_ag.blob bcmdhd/fw_bcm43752a2_pcie_ag_apsta.bin bcmdhd/nvram_ap6275p_mp.txt imx/sdma/sdma-imx7d.bin"
+CONFIG_EXTRA_FIRMWARE="ar3k/AthrBT_0x11020000.dfu ar3k/ramps_0x11020000_40.dfu ar3k/AthrBT_0x11020100.dfu ar3k/ramps_0x11020100_40.dfu ti-connectivity/wl18xx-conf.bin ti-connectivity/wl1271-nvs.bin ti-connectivity/wl18xx-fw-4.bin ti-connectivity/TIInit_11.8.32.bts bcmdhd/clm_bcm43752a2_pcie_ag.blob bcmdhd/fw_bcm43752a2_pcie_ag_apsta.bin bcmdhd/nvram_ap6275p_mp.txt imx/sdma/sdma-imx7d.bin regulatory.db regulatory.db.p7s"
 CONFIG_FW_LOADER_USER_HELPER=y
 CONFIG_IMX_WEIM=y
 CONFIG_CONNECTOR=y
