@@ -61,6 +61,7 @@
 		regulator-max-microvolt = <3300000>;
 		gpio = <&gpio7 14 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
+		regulator-boot-on;
 	};
 
 	pds6_cold_reset: pds6-cold-reset {
