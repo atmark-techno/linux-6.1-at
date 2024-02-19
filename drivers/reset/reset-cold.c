@@ -1,15 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Cold Reset Driver
  *
- * Copyright (c) 2017 Atmark Techno, Inc. All Rights Reserved.
+ * Copyright (c) 2024 Atmark Techno, Inc. All Rights Reserved.
  *
  * Based on: gpio-reset.c
  *   Copyright 2013 Philipp Zabel, Pengutronix
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
  */
 #include <linux/delay.h>
 #include <linux/err.h>

@@ -1,12 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * DTS overlay for converting ti,tilcdc,slave binding to new binding.
- *
- * Copyright (C) 2018 Atmark Techno, Inc. All Rights Reserved.
+ * Copyright (C) 2024 Atmark Techno, Inc. All Rights Reserved.
  * Author: Daisuke Mizobuchi <mizo@atmark-techno.com>
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
  */
 #include <dt-bindings/clock/imx7d-clock.h>
 #include <dt-bindings/gpio/gpio.h>
