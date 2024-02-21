@@ -82,8 +82,7 @@ static struct thermal_zone_device_ops ops = {
 	.get_temp = bmic_get_temp,
 };
 
-static int bmic_thermal_probe(struct i2c_client *client,
-			      const struct i2c_device_id *id)
+static int bmic_thermal_probe(struct i2c_client *client)
 {
 	struct bmic_thermal *thermal;
 	int ver;
@@ -163,7 +162,7 @@ static struct i2c_driver bmic_thermal_driver = {
 		.owner = THIS_MODULE,
 		.of_match_table = of_match_ptr(bmic_thermal_of_match),
 	},
-	.probe = bmic_thermal_probe,
+	.probe_new = bmic_thermal_probe,
 	.remove = bmic_thermal_remove,
 	.id_table = bmic_thermal_id,
 };
