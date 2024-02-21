@@ -138,8 +138,7 @@ static struct attribute_group bmic_poweroff_attr_group = {
 	.attrs = bmic_poweroff_attrs,
 };
 
-static int bmic_poweroff_probe(struct i2c_client *client,
-			       const struct i2c_device_id *id)
+static int bmic_poweroff_probe(struct i2c_client *client)
 {
 	struct bmic_poweroff *poweroff;
 	struct device *dev = &client->dev;
@@ -246,7 +245,7 @@ static struct i2c_driver bmic_poweroff_driver = {
 		.name	= "bmic_poweroff",
 		.of_match_table = of_match_ptr(bmic_poweroff_dt_ids),
 	},
-	.probe		= bmic_poweroff_probe,
+	.probe_new	= bmic_poweroff_probe,
 	.remove		= bmic_poweroff_remove,
 	.id_table	= bmic_poweroff_id,
 };
