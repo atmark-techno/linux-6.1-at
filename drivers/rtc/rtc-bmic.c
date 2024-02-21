@@ -146,8 +146,7 @@ static struct rtc_class_ops bmic_rtc_ops = {
 };
 
 
-static int bmic_rtc_probe(struct i2c_client *client,
-			  const struct i2c_device_id *id)
+static int bmic_rtc_probe(struct i2c_client *client)
 {
 	struct bmic_rtc *rtc;
 	struct device_node *np = client->dev.of_node;
@@ -245,7 +244,7 @@ static struct i2c_driver bmic_rtc_driver = {
 		.pm	= &bmic_rtc_pm_ops,
 		.of_match_table = of_match_ptr(bmic_rtc_of_match),
 	},
-	.probe		= bmic_rtc_probe,
+	.probe_new	= bmic_rtc_probe,
 	.id_table	= bmic_rtc_id,
 };
 module_i2c_driver(bmic_rtc_driver);
