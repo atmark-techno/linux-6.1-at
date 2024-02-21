@@ -116,8 +116,7 @@ static int gpio_bmic_setup_gpio(struct gpio_bmic *gpio)
 	return 0;
 }
 
-static int gpio_bmic_probe(struct i2c_client *client,
-			   const struct i2c_device_id *id)
+static int gpio_bmic_probe(struct i2c_client *client)
 {
 	struct gpio_bmic *gpio;
 	int ver;
@@ -173,7 +172,7 @@ static struct i2c_driver gpio_bmic_driver = {
 		.name	= "gpio_bmic",
 		.of_match_table = of_match_ptr(gpio_bmic_dt_ids),
 	},
-	.probe		= gpio_bmic_probe,
+	.probe_new	= gpio_bmic_probe,
 	.id_table	= gpio_bmic_id,
 };
 
