@@ -437,8 +437,7 @@ static const struct iio_info bmic_adc_info = {
 	.write_event_value = bmic_adc_write_event_value,
 };
 
-static int bmic_adc_probe(struct i2c_client *client,
-			 const struct i2c_device_id *id)
+static int bmic_adc_probe(struct i2c_client *client)
 {
 	struct iio_dev *iio;
 	struct bmic_adc *adc;
@@ -546,7 +545,7 @@ static struct i2c_driver bmic_adc_driver = {
 		.owner = THIS_MODULE,
 		.of_match_table = of_match_ptr(bmic_adc_of_match),
 	},
-	.probe = bmic_adc_probe,
+	.probe_new = bmic_adc_probe,
 	.remove = bmic_adc_remove,
 	.id_table = bmic_adc_id,
 };
