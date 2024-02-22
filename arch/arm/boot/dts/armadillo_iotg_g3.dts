@@ -60,8 +60,13 @@
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 		gpio = <&gpio7 14 GPIO_ACTIVE_HIGH>;
+		/*
+		 * on AP6275P sequence, require min 12.47ms delay,
+		 * but the pci driver cannot control the start of the clock,
+		 * so used this property instead.
+		 */
+		regulator-enable-ramp-delay = <15000>;
 		enable-active-high;
-		regulator-boot-on;
 	};
 
 	pds6_cold_reset: pds6-cold-reset {
@@ -515,6 +520,15 @@
 	};
 };
 
+/*
+ * When the gpc is powered on, the clock to the PCI is output
+ * before the PCI regulator is enabled. So set reg_pcie as a
+ * regulator for gpc to work the correct sequence.
+ */
+&pgc_pcie_phy {
+	device-supply = <&reg_pcie>;
+};
+
 &pcie_phy{
 	status = "okay";
 };
@@ -528,7 +542,6 @@
 	disable-gpio-open-drain;
 	clkreq-gpio = <&gpio6 17 GPIO_ACTIVE_HIGH>;
 	wake-gpio = <&gpio6 14 GPIO_ACTIVE_HIGH>;
-	vpcie-supply = <&reg_pcie>;
 	status = "okay";
 };
 
