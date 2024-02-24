@@ -291,6 +291,7 @@ struct imx_pgc_domain {
 	struct regmap *noc_regmap;
 	const struct imx_pgc_regs *regs;
 	struct regulator *regulator;
+	struct regulator *dev_regulator;
 	struct reset_control *reset;
 	struct clk_bulk_data *clks;
 	int num_clks;
@@ -358,13 +359,23 @@ static int imx_pgc_power_up(struct generic_pm_domain *genpd)
 		return ret;
 	}
 
+	if (!IS_ERR(domain->dev_regulator)) {
+		ret = regulator_enable(domain->dev_regulator);
+		if (ret) {
+			dev_err(domain->dev,
+				"failed to enable device's regulator: %pe\n",
+				ERR_PTR(ret));
+			goto out_put_pm;
+		}
+	}
+
 	if (!IS_ERR(domain->regulator)) {
 		ret = regulator_enable(domain->regulator);
 		if (ret) {
 			dev_err(domain->dev,
 				"failed to enable regulator: %pe\n",
 				ERR_PTR(ret));
-			goto out_put_pm;
+			goto out_dev_regulator_disable;
 		}
 	}
 
@@ -445,6 +456,9 @@ out_clk_disable:
 out_regulator_disable:
 	if (!IS_ERR(domain->regulator))
 		regulator_disable(domain->regulator);
+out_dev_regulator_disable:
+	if (!IS_ERR(domain->dev_regulator))
+		regulator_disable(domain->dev_regulator);
 out_put_pm:
 	pm_runtime_put(domain->dev);
 
@@ -515,6 +529,16 @@ static int imx_pgc_power_down(struct generic_pm_domain *genpd)
 		if (ret) {
 			dev_err(domain->dev,
 				"failed to disable regulator: %pe\n",
+				ERR_PTR(ret));
+			return ret;
+		}
+	}
+
+	if (!IS_ERR(domain->dev_regulator)) {
+		ret = regulator_disable(domain->dev_regulator);
+		if (ret) {
+			dev_err(domain->dev,
+				"failed to disable device's regulator: %pe\n",
 				ERR_PTR(ret));
 			return ret;
 		}
@@ -1425,6 +1449,13 @@ static int imx_pgc_domain_probe(struct platform_device *pdev)
 	int ret;
 
 	domain->dev = &pdev->dev;
+
+	domain->dev_regulator = devm_regulator_get_optional(domain->dev, "device");
+	if (IS_ERR(domain->dev_regulator)) {
+		if (PTR_ERR(domain->dev_regulator) != -ENODEV)
+			return dev_err_probe(domain->dev, PTR_ERR(domain->dev_regulator),
+					     "Failed to get device's regulator\n");
+	}
 
 	domain->regulator = devm_regulator_get_optional(domain->dev, "power");
 	if (IS_ERR(domain->regulator)) {
