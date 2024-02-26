@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/gpio.h>
 #include <linux/i2c.h>
+#include <linux/pm_runtime.h>
 
 #define BMIC_POWEROFF_MAJOR_VERSION(v)	((v >> 8) & 0xff)
 #define BMIC_POWEROFF_MINOR_VERSION(v)	(v & 0xff)
@@ -114,14 +115,22 @@ static int bmic_restart_notify(struct notifier_block *this,
 	struct bmic_restart *bmic_restart =
 		container_of(this, struct bmic_restart, restart_handler);
 
+	/* get runtime for i2c to wake it up */
+	pm_runtime_resume_and_get(&bmic_restart->client->adapter->dev);
+
 	/* override turn-on-delay */
 	ret = bmic_poweroff_set_turn_on_delay(bmic_restart->client,
 					      bmic_restart->delay);
-	if (ret)
-		return NOTIFY_BAD;
+	if (ret) {
+		ret = NOTIFY_BAD;
+		goto out;
+	}
 
 	bmic_poweroff_do_poweroff();
+	ret = NOTIFY_DONE;
 
+out:
+	pm_runtime_put(&bmic_restart->client->adapter->dev);
 	return NOTIFY_DONE;
 }
 
