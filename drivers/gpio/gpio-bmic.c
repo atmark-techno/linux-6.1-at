@@ -51,7 +51,7 @@ static int gpio_bmic_gpio_direction_output(struct gpio_chip *gc,
 	if (output == gpio->reg_output)
 		goto exit;
 
-	pm_runtime_resume_and_get(&gpio->client->adapter->dev);
+	pm_runtime_get_sync(&gpio->client->adapter->dev);
 	ret = i2c_smbus_write_byte_data(gpio->client, REG_VALUE, output);
 	pm_runtime_put(&gpio->client->adapter->dev);
 	if (ret < 0)

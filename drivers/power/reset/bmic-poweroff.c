@@ -116,7 +116,7 @@ static int bmic_restart_notify(struct notifier_block *this,
 		container_of(this, struct bmic_restart, restart_handler);
 
 	/* get runtime for i2c to wake it up */
-	pm_runtime_resume_and_get(&bmic_restart->client->adapter->dev);
+	pm_runtime_get_sync(&bmic_restart->client->adapter->dev);
 
 	/* override turn-on-delay */
 	ret = bmic_poweroff_set_turn_on_delay(bmic_restart->client,
