@@ -1958,19 +1958,21 @@ int sev_mem_enc_register_region(struct kvm *kvm,
 		goto e_free;
 	}
 
+	/*
+	 * The guest may change the memory encryption attribute from C=0 -> C=1
+	 * or vice versa for this memory range. Lets make sure caches are
+	 * flushed to ensure that guest data gets written into memory with
+	 * correct C-bit.  Note, this must be done before dropping kvm->lock,
+	 * as region and its array of pages can be freed by a different task
+	 * once kvm->lock is released.
+	 */
+	sev_clflush_pages(region->pages, region->npages);
+
 	region->uaddr = range->addr;
 	region->size = range->size;
 
 	list_add_tail(&region->list, &sev->regions_list);
 	mutex_unlock(&kvm->lock);
-
-	/*
-	 * The guest may change the memory encryption attribute from C=0 -> C=1
-	 * or vice versa for this memory range. Lets make sure caches are
-	 * flushed to ensure that guest data gets written into memory with
-	 * correct C-bit.
-	 */
-	sev_clflush_pages(region->pages, region->npages);
 
 	return ret;
 
@@ -2941,6 +2943,32 @@ int sev_es_string_io(struct vcpu_svm *svm, int size, unsigned int port, int in)
 				    count, in);
 }
 
+static void sev_es_vcpu_after_set_cpuid(struct vcpu_svm *svm)
+{
+	struct kvm_vcpu *vcpu = &svm->vcpu;
+
+	if (boot_cpu_has(X86_FEATURE_V_TSC_AUX)) {
+		bool v_tsc_aux = guest_cpuid_has(vcpu, X86_FEATURE_RDTSCP) ||
+				 guest_cpuid_has(vcpu, X86_FEATURE_RDPID);
+
+		set_msr_interception(vcpu, svm->msrpm, MSR_TSC_AUX, v_tsc_aux, v_tsc_aux);
+	}
+}
+
+void sev_vcpu_after_set_cpuid(struct vcpu_svm *svm)
+{
+	struct kvm_vcpu *vcpu = &svm->vcpu;
+	struct kvm_cpuid_entry2 *best;
+
+	/* For sev guests, the memory encryption bit is not reserved in CR3.  */
+	best = kvm_find_cpuid_entry(vcpu, 0x8000001F);
+	if (best)
+		vcpu->arch.reserved_gpa_bits &= ~(1UL << (best->ebx & 0x3f));
+
+	if (sev_es_guest(svm->vcpu.kvm))
+		sev_es_vcpu_after_set_cpuid(svm);
+}
+
 static void sev_es_init_vmcb(struct vcpu_svm *svm)
 {
 	struct kvm_vcpu *vcpu = &svm->vcpu;
@@ -2987,14 +3015,6 @@ static void sev_es_init_vmcb(struct vcpu_svm *svm)
 	set_msr_interception(vcpu, svm->msrpm, MSR_IA32_LASTBRANCHTOIP, 1, 1);
 	set_msr_interception(vcpu, svm->msrpm, MSR_IA32_LASTINTFROMIP, 1, 1);
 	set_msr_interception(vcpu, svm->msrpm, MSR_IA32_LASTINTTOIP, 1, 1);
-
-	if (boot_cpu_has(X86_FEATURE_V_TSC_AUX) &&
-	    (guest_cpuid_has(&svm->vcpu, X86_FEATURE_RDTSCP) ||
-	     guest_cpuid_has(&svm->vcpu, X86_FEATURE_RDPID))) {
-		set_msr_interception(vcpu, svm->msrpm, MSR_TSC_AUX, 1, 1);
-		if (guest_cpuid_has(&svm->vcpu, X86_FEATURE_RDTSCP))
-			svm_clr_intercept(svm, INTERCEPT_RDTSCP);
-	}
 }
 
 void sev_init_vmcb(struct vcpu_svm *svm)
