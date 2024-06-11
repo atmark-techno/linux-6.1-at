@@ -2203,7 +2203,7 @@ wl_run_escan(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 			+ OFFSETOF(wl_escan_params_v1_t, params));
 	}
 
-	if (!cfg->p2p_supported || !p2p_scan(cfg)) {
+	if (!cfg->p2p_supported || !p2p_is_scan(cfg)) {
 		/* LEGACY SCAN TRIGGER */
 		WL_SCAN((" LEGACY E-SCAN START\n"));
 
@@ -3242,7 +3242,7 @@ wl_notify_escan_complete(struct bcm_cfg80211 *cfg,
 #if defined(ESCAN_RESULT_PATCH)
 	if (likely(cfg->scan_request)) {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
-		if (aborted && cfg->p2p && p2p_scan(cfg) &&
+		if (aborted && p2p_is_scan(cfg) &&
 			(cfg->scan_request->flags & NL80211_SCAN_FLAG_FLUSH)) {
 			WL_ERR(("scan list is changed"));
 			cfg->bss_list = wl_escan_get_buf(cfg, !aborted);

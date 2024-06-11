@@ -3939,7 +3939,7 @@ wl_ext_in4way_sync_sta(struct wl_if_info *cur_if, uint action,
 			break;
 		case WL_EXT_STATUS_SCAN_COMPLETE:
 			if ((conf->war & FW_REINIT_EMPTY_SCAN) &&
-					cfg->bss_list->count == 0 && !p2p_scan(cfg)) {
+					cfg->bss_list->count == 0 && !p2p_is_scan(cfg)) {
 				osl_do_gettimeofday(&cur_ts);
 				diff_ms = osl_do_gettimediff(&cur_ts, sta_disc_ts)/1000;
 				cur_if->empty_scan++;
