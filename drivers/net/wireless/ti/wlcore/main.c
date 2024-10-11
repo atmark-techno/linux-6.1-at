@@ -3511,6 +3511,9 @@ int wlcore_set_key(struct wl1271 *wl, enum set_key_cmd cmd,
 		key_type = KEY_TKIP;
 		key_conf->hw_key_idx = key_conf->keyidx;
 		break;
+	case WLAN_CIPHER_SUITE_AES_CMAC: //RazB - Adding IGTK
+	    key_type = KEY_IGTK;
+	    break;
 	case WLAN_CIPHER_SUITE_CCMP:
 		key_type = KEY_AES;
 		key_conf->flags |= IEEE80211_KEY_FLAG_PUT_IV_SPACE;
@@ -6145,8 +6148,10 @@ static int wl1271_init_ieee80211(struct wl1271 *wl)
 		WLAN_CIPHER_SUITE_TKIP,
 		WLAN_CIPHER_SUITE_CCMP,
 		WL1271_CIPHER_SUITE_GEM,
+		WLAN_CIPHER_SUITE_AES_CMAC,
 	};
 
+    wl1271_debug(DEBUG_BOOT, "+++++++++++++++++++++++++++++++cipher_suites init++++++++++++++++++++++");
 	/* The tx descriptor buffer */
 	wl->hw->extra_tx_headroom = sizeof(struct wl1271_tx_hw_descr);
 
