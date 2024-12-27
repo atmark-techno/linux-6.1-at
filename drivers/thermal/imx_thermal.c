@@ -241,7 +241,7 @@ static void imx_set_alarm_temp(struct imx_thermal_data *data,
 	data->alarm_temp = alarm_temp;
 
 	if (data->socdata->version == TEMPMON_IMX7D)
-		alarm_value = alarm_temp / 1000 + data->c1 - 25;
+		alarm_value = (alarm_temp - 25 * 1000) / 870 + data->c1;
 	else
 		alarm_value = (data->c2 - alarm_temp) / data->c1;
 
@@ -276,7 +276,7 @@ static int imx_get_temp(struct thermal_zone_device *tz, int *temp)
 
 	/* See imx_init_calib() for formula derivation */
 	if (data->socdata->version == TEMPMON_IMX7D)
-		*temp = (n_meas - data->c1 + 25) * 1000;
+		*temp = 25 * 1000 + 870 * (n_meas - data->c1);
 	else
 		*temp = data->c2 - n_meas * data->c1;
 
@@ -469,7 +469,7 @@ static int imx_init_calib(struct platform_device *pdev, u32 ocotp_ana1)
 
 	/*
 	 * On i.MX7D, we only use the calibration data at 25C to get the temp,
-	 * Tmeas = ( Nmeas - n1) + 25; n1 is the fuse value for 25C.
+	 * Tmeas = 0.87 * ( Nmeas - n1) + 25; n1 is the fuse value for 25C.
 	 */
 	if (data->socdata->version == TEMPMON_IMX7D) {
 		data->c1 = (ocotp_ana1 >> 9) & 0x1ff;
