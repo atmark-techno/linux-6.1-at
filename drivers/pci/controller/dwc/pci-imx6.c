@@ -1095,7 +1095,7 @@ err_reset_phy:
 		dev_info(dev, "Let PCIe_b probe failed when link is down.\n");
 		return ret;
 	}
-	return 0;
+	return ret;
 }
 
 static void imx6_pcie_stop_link(struct dw_pcie *pci)
