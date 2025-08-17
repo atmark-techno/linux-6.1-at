@@ -1431,7 +1431,6 @@ static void imx6_pcie_pm_turnoff(struct imx6_pcie *imx6_pcie)
 	 * proceed anyway as if acks were received.
 	 */
 pm_turnoff_sleep:
-	usleep_range(1000, 10000);
 	/*
 	 * During suspend, there are times when power supply for the
 	 * device is turned off. Keeping the pin output drive on high
@@ -1440,6 +1439,7 @@ pm_turnoff_sleep:
 	 */
 	if (gpio_is_valid(imx6_pcie->reset_gpio))
 		gpio_set_value_cansleep(imx6_pcie->reset_gpio, 0);
+	usleep_range(1000, 10000);
 }
 
 static int imx6_pcie_suspend_noirq(struct device *dev)
