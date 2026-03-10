@@ -1,5 +1,24 @@
 /*
- * Copyright (C) 2020, Broadcom.
+ * Copyright (C) 2026 Synaptics Incorporated. All rights reserved.
+ *
+ * This software is licensed to you under the terms of the
+ * GNU General Public License version 2 (the "GPL") with Broadcom special exception.
+ *
+ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
+ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
+ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
+ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION
+ * DOES NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES,
+ * SYNAPTICS' TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT
+ * EXCEED ONE HUNDRED U.S. DOLLARS
+ *
+ * Copyright (C) 2026, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -40,6 +59,8 @@ typedef bool (*f_processpkt_t)(void* p, void* arg);
 #define WLFC_NO_TRAFFIC	-1
 #define WLFC_MULTI_TRAFFIC 0
 
+//#define DHD_WLFC_SUPPRESSED_TIMEOUT	500
+
 #define BUS_RETRIES 1	/* # of retries before aborting a bus tx operation */
 
 /** 16 bits will provide an absolute max of 65536 slots */
@@ -54,6 +75,9 @@ typedef bool (*f_processpkt_t)(void* p, void* arg);
 #define WLFC_HANGER_PKT_STATE_BUSRETURNED		2
 #define WLFC_HANGER_PKT_STATE_COMPLETE			\
 	(WLFC_HANGER_PKT_STATE_TXSTATUS | WLFC_HANGER_PKT_STATE_BUSRETURNED)
+
+#define SIMUTX_MAX_CNT_DOWN		1024
+#define SIMUTX_VALID_COMP_TXS	4
 
 typedef enum {
 	Q_TYPE_PSQ, /**< Power Save Queue, contains both delayed and suppressed packets */
@@ -112,8 +136,8 @@ typedef struct wlfc_hanger {
 #define WLFC_PSQ_LEN			(4096 * 8)
 
 #ifdef BCMDBUS
-#define WLFC_FLOWCONTROL_HIWATER	512
-#define WLFC_FLOWCONTROL_LOWATER	(WLFC_FLOWCONTROL_HIWATER / 4)
+#define WLFC_FLOWCONTROL_HIWATER	((4096 * 8) - 256)
+#define WLFC_FLOWCONTROL_LOWATER	256
 #else
 #define WLFC_FLOWCONTROL_HIWATER	((4096 * 8) - 256)
 #define WLFC_FLOWCONTROL_LOWATER	256
@@ -145,11 +169,6 @@ typedef struct wlfc_mac_descriptor {
 	struct pktq	psq;    /**< contains both 'delayed' and 'suppressed' packets */
 	/** packets at firmware queue */
 	struct pktq	afq;
-#if defined(BCMINTERNAL) && defined(OOO_DEBUG)
-	uint8 last_send_gen[AC_COUNT+1];
-	uint8 last_send_seq[AC_COUNT+1];
-	uint8 last_complete_seq[AC_COUNT+1];
-#endif /* defined(BCMINTERNAL) && defined(OOO_DEBUG) */
 	/** The AC pending bitmap that was reported to the fw at last change */
 	uint8 traffic_lastreported_bmp;
 	/** The new AC pending bitmap */
@@ -165,10 +184,17 @@ typedef struct wlfc_mac_descriptor {
 	int onbus_pkts_count;
 	/** flag. TRUE when remote MAC is in suppressed state */
 	uint8 suppressed;
-
+#ifdef DHD_HWTSTAMP
+	uint32 tsf[WL_TXSTATUS_FREERUNCTR_MAXNUM][2];
+#endif /* DHD_HWTSTAMP */
 #ifdef QMONITOR
 	dhd_qmon_t qmon;
 #endif /* QMONITOR */
+
+#ifdef DHD_WLFC_SUPPRESSED_TIMEOUT
+	int prev_suppr_transit_count;
+	unsigned long prev_suppr_transit_tmo;
+#endif /* DHD_WLFC_SUPPRESSED_TIMEOUT */
 
 #ifdef PROP_TXSTATUS_DEBUG
 	uint32 dstncredit_sent_packets;
@@ -358,15 +384,11 @@ typedef struct athost_wl_status_info {
 
 	bool	bcmc_credit_supported;
 
-#if defined(BCMINTERNAL) && defined(OOO_DEBUG)
-	uint8*	log_buf;
-	uint32	log_buf_offset;
-	bool	log_buf_full;
-#endif /* defined(BCMINTERNAL) && defined(OOO_DEBUG) */
-
 #ifdef BULK_DEQUEUE
 	uint8	max_release_count;
 #endif /* total_credit */
+	uint8 last_ifid;
+	uint32 simutx_cntdown;
 } athost_wl_status_info_t;
 
 /** Please be mindful that total pkttag space is 32 octets only */
@@ -562,6 +584,7 @@ int dhd_wlfc_hostreorder_init(dhd_pub_t *dhd);
 int dhd_wlfc_cleanup_txq(dhd_pub_t *dhd, f_processpkt_t fn, void *arg);
 int dhd_wlfc_cleanup(dhd_pub_t *dhd, f_processpkt_t fn, void* arg);
 int dhd_wlfc_deinit(dhd_pub_t *dhd);
+int dhd_wlfc_get_intf_role(dhd_pub_t *dhdp, uint8 ifid, uint8 *role);
 int dhd_wlfc_interface_event(dhd_pub_t *dhdp, uint8 action, uint8 ifid, uint8 iftype, uint8* ea);
 int dhd_wlfc_FIFOcreditmap_event(dhd_pub_t *dhdp, uint8* event_data);
 #ifdef LIMIT_BORROW

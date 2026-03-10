@@ -2,7 +2,26 @@
  * Misc utility routines for accessing chip-specific features
  * of the SiliconBackplane-based Broadcom chips.
  *
- * Copyright (C) 2020, Broadcom.
+ * Copyright (C) 2026 Synaptics Incorporated. All rights reserved.
+ *
+ * This software is licensed to you under the terms of the
+ * GNU General Public License version 2 (the "GPL") with Broadcom special exception.
+ *
+ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
+ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
+ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
+ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION
+ * DOES NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES,
+ * SYNAPTICS' TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT
+ * EXCEED ONE HUNDRED U.S. DOLLARS
+ *
+ * Copyright (C) 2026, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -127,7 +146,7 @@ sb_setint(const si_t *sih, int siflag)
 
 /* return core index of the core with address 'sba' */
 static uint
-BCMATTACHFN(_sb_coreidx)(const si_info_t *sii, uint32 sba)
+_sb_coreidx(const si_info_t *sii, uint32 sba)
 {
 	uint i;
 	const si_cores_info_t *cores_info = (const si_cores_info_t *)sii->cores_info;
@@ -140,7 +159,7 @@ BCMATTACHFN(_sb_coreidx)(const si_info_t *sii, uint32 sba)
 
 /* return core address of the current core */
 static uint32
-BCMATTACHFN(_sb_coresba)(const si_info_t *sii)
+_sb_coresba(const si_info_t *sii)
 {
 	uint32 sbaddr;
 
@@ -444,7 +463,7 @@ sb_corereg_addr(const si_t *sih, uint coreidx, uint regoff)
  */
 #define SB_MAXBUSES	2
 static uint
-BCMATTACHFN(_sb_scan)(si_info_t *sii, uint32 sba, volatile void *regs, uint bus,
+_sb_scan(si_info_t *sii, uint32 sba, volatile void *regs, uint bus,
 	uint32 sbba, uint numcores, uint devid)
 {
 	uint next;
@@ -518,7 +537,7 @@ BCMATTACHFN(_sb_scan)(si_info_t *sii, uint32 sba, volatile void *regs, uint bus,
 
 /* scan the sb enumerated space to identify all cores */
 void
-BCMATTACHFN(sb_scan)(si_t *sih, volatile void *regs, uint devid)
+sb_scan(si_t *sih, volatile void *regs, uint devid)
 {
 	uint32 origsba;
 	sbconfig_t *sb;
@@ -673,8 +692,7 @@ sb_addrspacesize(const si_t *sih, uint asidx)
 	return (sb_size(R_SBREG(sii, sb_admatch(sii, asidx))));
 }
 
-#if defined(BCMDBG_ERR) || defined(BCMASSERT_SUPPORT) || \
-	defined(BCMDBG_DUMP)
+#if defined(BCMDBG_ERR) || defined(BCMASSERT_SUPPORT) || defined(BCMDBG_DUMP)
 /* traverse all cores to find and clear source of serror */
 static void
 sb_serr_clear(si_info_t *sii)
@@ -881,12 +899,14 @@ sb_core_disable(const si_t *sih, uint32 bits)
 	sb = REGS2SB(sii->curmap);
 
 	/* if core is already in reset, just return */
-	if (R_SBREG(sii, &sb->sbtmstatelow) & SBTML_RESET)
+	if (R_SBREG(sii, &sb->sbtmstatelow) & SBTML_RESET) {
 		return;
+	}
 
 	/* if clocks are not enabled, put into reset and return */
-	if ((R_SBREG(sii, &sb->sbtmstatelow) & (SICF_CLOCK_EN << SBTML_SICF_SHIFT)) == 0)
+	if ((R_SBREG(sii, &sb->sbtmstatelow) & (SICF_CLOCK_EN << SBTML_SICF_SHIFT)) == 0) {
 		goto disable;
+	}
 
 	/* set target reject and spin until busy is clear (preserve core-specific bits) */
 	OR_SBREG(sii, &sb->sbtmstatelow, SBTML_REJ);
@@ -894,8 +914,9 @@ sb_core_disable(const si_t *sih, uint32 bits)
 	BCM_REFERENCE(dummy);
 	OSL_DELAY(1);
 	SPINWAIT((R_SBREG(sii, &sb->sbtmstatehigh) & SBTMH_BUSY), 100000);
-	if (R_SBREG(sii, &sb->sbtmstatehigh) & SBTMH_BUSY)
+	if (R_SBREG(sii, &sb->sbtmstatehigh) & SBTMH_BUSY) {
 		SI_ERROR(("sb_core_disable: target state still busy\n"));
+	}
 
 	/*
 	 * If core is initiator, set the Reject bit and allow Busy to clear.
@@ -919,8 +940,9 @@ sb_core_disable(const si_t *sih, uint32 bits)
 	OSL_DELAY(10);
 
 	/* don't forget to clear the initiator reject bit */
-	if (R_SBREG(sii, &sb->sbidlow) & SBIDL_INIT)
+	if (R_SBREG(sii, &sb->sbidlow) & SBIDL_INIT) {
 		AND_SBREG(sii, &sb->sbimstate, ~SBIM_RJ);
+	}
 
 disable:
 	/* leave reset and reject asserted */

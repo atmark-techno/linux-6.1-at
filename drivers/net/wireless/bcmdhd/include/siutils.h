@@ -2,7 +2,26 @@
  * Misc utility routines for accessing the SOC Interconnects
  * of Broadcom HNBU chips.
  *
- * Copyright (C) 2020, Broadcom.
+ * Copyright (C) 2026 Synaptics Incorporated. All rights reserved.
+ *
+ * This software is licensed to you under the terms of the
+ * GNU General Public License version 2 (the "GPL") with Broadcom special exception.
+ *
+ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
+ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
+ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
+ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION
+ * DOES NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES,
+ * SYNAPTICS' TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT
+ * EXCEED ONE HUNDRED U.S. DOLLARS
+ *
+ * Copyright (C) 2026, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -349,14 +368,6 @@ extern void *si_osh(si_t *sih);
 extern void si_setosh(si_t *sih, osl_t *osh);
 extern int si_backplane_access(si_t *sih, uint addr, uint size, uint *val, bool read);
 
-/* precommit failed when this is removed */
-/* BLAZAR_BRANCH_101_10_DHD_002/build/dhd/linux-fc30/brix-brcm */
-/* TBD: Revisit later */
-#ifdef BCMINTERNAL
-extern int si_backplane_access_64(si_t *sih, uint addr, uint size,
-    uint64 *val, bool read);
-#endif /* BCMINTERNAL */
-
 extern uint si_corereg(si_t *sih, uint coreidx, uint regoff, uint mask, uint val);
 extern uint si_corereg_writeonly(si_t *sih, uint coreidx, uint regoff, uint mask, uint val);
 extern uint si_pmu_corereg(si_t *sih, uint32 idx, uint regoff, uint mask, uint val);
@@ -394,7 +405,7 @@ extern uint32 si_addrspace(const si_t *sih, uint spidx, uint baidx);
 extern uint32 si_addrspacesize(const si_t *sih, uint spidx, uint baidx);
 extern void si_coreaddrspaceX(const si_t *sih, uint asidx, uint32 *addr, uint32 *size);
 extern int si_corebist(const si_t *sih);
-extern void si_core_reset(si_t *sih, uint32 bits, uint32 resetbits);
+extern bool si_core_reset(si_t *sih, uint32 bits, uint32 resetbits);
 extern void si_core_disable(const si_t *sih, uint32 bits);
 extern uint32 si_clock_rate(uint32 pll_type, uint32 n, uint32 m);
 extern uint si_chip_hostif(const si_t *sih);
@@ -546,8 +557,8 @@ extern int si_cis_source(const si_t *sih);
 /* bp_ind_access default timeout */
 #define BP_ACCESS_TO (500u * 1000u)
 
-extern uint16 BCMATTACHFN(si_fabid)(si_t *sih);
-extern uint16 BCMINITFN(si_chipid)(const si_t *sih);
+extern uint16 si_fabid(si_t *sih);
+extern uint16 si_chipid(const si_t *sih);
 
 /*
  * Build device path. Path size must be >= SI_DEVPATH_BUFSZ.
@@ -638,10 +649,10 @@ extern int si_pcie_configspace_cache(const si_t *sih);
 extern int si_pcie_configspace_restore(const si_t *sih);
 extern int si_pcie_configspace_get(const si_t *sih, uint8 *buf, uint size);
 
-#ifndef BCMDONGLEHOST
-extern void si_muxenab(si_t *sih, uint32 w);
 extern uint32 si_clear_backplane_to(si_t *sih);
 extern void si_slave_wrapper_add(si_t *sih);
+#ifndef BCMDONGLEHOST
+extern void si_muxenab(si_t *sih, uint32 w);
 
 #ifdef AXI_TIMEOUTS_NIC
 extern uint32 si_clear_backplane_to_fast(void *sih, void *addr);
@@ -697,6 +708,7 @@ extern uint32 si_gci_get_functionsel(si_t *sih, uint32 pin);
 extern void si_gci_clear_functionsel(si_t *sih, uint8 fnsel);
 extern uint8 si_gci_get_chipctrlreg_idx(uint32 pin, uint32 *regidx, uint32 *pos);
 extern uint32 si_gci_chipcontrol(si_t *sih, uint reg, uint32 mask, uint32 val);
+extern void sflash_gpio_config(si_t *sih);
 extern uint32 si_gci_chipstatus(si_t *sih, uint reg);
 extern uint8 si_enable_device_wake(si_t *sih, uint8 *wake_status, uint8 *cur_status);
 extern uint8 si_get_device_wake_opt(si_t *sih);
@@ -774,6 +786,10 @@ extern uint32 si_raw_reg(const si_t *sih, uint32 reg, uint32 val, uint32 wrire_r
 
 #define LHL_REG(si, member, mask, val) \
 		si_corereg(si, si_findcoreidx(si, GCI_CORE_ID, 0), \
+			OFFSETOF(gciregs_t, member), mask, val)
+
+#define LHL_W_REG(si, member, mask, val) \
+		si_corereg_writeonly(si, si_findcoreidx(si, GCI_CORE_ID, 0), \
 			OFFSETOF(gciregs_t, member), mask, val)
 
 #define CHIPC_REG(si, member, mask, val) \
@@ -967,7 +983,9 @@ bool si_srpwr_cap(si_t *sih);
  *      ARM, TCM, Main, Aux
  *      Host needs to power up
  */
-#define MULTIBP_CAP(sih)	(BCM4378_CHIP(sih->chip) || \
+#define MULTIBP_CAP(sih)	(BCM4378_CHIP(sih->chip) || BCM4381_CHIP(sih->chip) || \
+				BCM4383_CHIP(sih->chip) || \
+				BCM43852_CHIP(sih->chip) || BCM4382_CHIP(sih->chip) || \
 				BCM4387_CHIP(sih->chip) || BCM4388_CHIP(sih->chip) || \
 				BCM4389_CHIP(sih->chip) || BCM4385_CHIP(sih->chip) || \
 				BCM4376_CHIP(sih->chip) || BCM4397_CHIP(sih->chip))

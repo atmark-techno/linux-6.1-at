@@ -1,7 +1,26 @@
 /*
  * DHD Linux header file - contains private structure definition of the Linux specific layer
  *
- * Copyright (C) 2020, Broadcom.
+ * Copyright (C) 2026 Synaptics Incorporated. All rights reserved.
+ *
+ * This software is licensed to you under the terms of the
+ * GNU General Public License version 2 (the "GPL") with Broadcom special exception.
+ *
+ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
+ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
+ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
+ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION
+ * DOES NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES,
+ * SYNAPTICS' TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT
+ * EXCEED ONE HUNDRED U.S. DOLLARS
+ *
+ * Copyright (C) 2026, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -47,15 +66,25 @@
 #include <dhd_debug.h>
 #include <dhd_linux.h>
 #include <dhd_bus.h>
+#include <fwpkg_utils.h>
 
 #ifdef PCIE_FULL_DONGLE
 #include <bcmmsgbuf.h>
 #include <dhd_flowring.h>
 #endif /* PCIE_FULL_DONGLE */
+#if defined(DHD_HWTSTAMP) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30))
+#include <linux/net_tstamp.h>
+#endif /* defined(DHD_HWTSTAMP) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30)) */
 
-#ifdef DHD_QOS_ON_SOCK_FLOW
-struct dhd_sock_qos_info;
-#endif /* DHD_QOS_ON_SOCK_FLOW */
+#ifdef RX_PKT_POOL
+#define RX_PKTPOOL_RESCHED_DELAY_MS 500u
+#define RX_PKTPOOL_FETCH_MAX_ATTEMPTS 10u
+typedef struct pkt_pool {
+	struct sk_buff_head skb_q     ____cacheline_aligned;
+	uint32 max_size;
+	uint16 rxbuf_sz;
+} pkt_pool_t;
+#endif /* RX_PKT_POOL */
 
 /*
  * Do not include this header except for the dhd_linux.c dhd_linux_sysfs.c
@@ -71,10 +100,13 @@ typedef struct dhd_info {
 	*/
 	dhd_if_t *iflist[DHD_MAX_IFS + DHD_MAX_STATIC_IFS];
 	wifi_adapter_info_t *adapter;			/* adapter information, interrupt, fw path etc. */
+	fwpkg_info_t fwpkg;	/* combined fw package info structure */
 	char fw_path[PATH_MAX];		/* path to firmware image */
 	char nv_path[PATH_MAX];		/* path to nvram vars file */
-	char clm_path[PATH_MAX];		/* path to clm vars file */
+	char clm_path[PATH_MAX];	/* path to CLM data */
 	char conf_path[PATH_MAX];	/* path to config vars file */
+	char sig_path[PATH_MAX];	/* path to rtecdc.sig file */
+	char tmp_path[PATH_MAX];	/* path to logstrs vars file */
 #ifdef DHD_UCODE_DOWNLOAD
 	char uc_path[PATH_MAX];	/* path to ucode image */
 #endif /* DHD_UCODE_DOWNLOAD */
@@ -95,9 +127,6 @@ typedef struct dhd_info {
 	wait_queue_head_t d3ack_wait;
 	wait_queue_head_t dhd_bus_busy_state_wait;
 	wait_queue_head_t dmaxfer_wait;
-#ifdef BT_OVER_PCIE
-	wait_queue_head_t quiesce_wait;
-#endif /* BT_OVER_PCIE */
 	uint32	default_wd_interval;
 
 	timer_list_compat_t timer;
@@ -144,16 +173,14 @@ typedef struct dhd_info {
 	struct wakeup_source *wl_nanwake; /* NAN wakelock */
 #endif /* CONFIG_HAS_WAKELOCK */
 
-#if defined(OEM_ANDROID)
 	/* net_device interface lock, prevent race conditions among net_dev interface
 	 * calls and wifi_on or wifi_off
 	 */
 	struct mutex dhd_net_if_mutex;
 	struct mutex dhd_suspend_mutex;
-#if defined(PKT_FILTER_SUPPORT) && defined(APF)
+#if defined(APF)
 	struct mutex dhd_apf_mutex;
-#endif /* PKT_FILTER_SUPPORT && APF */
-#endif /* OEM_ANDROID */
+#endif /* APF */
 	spinlock_t wakelock_spinlock;
 	spinlock_t wakelock_evt_spinlock;
 	uint32 wakelock_counter;
@@ -251,6 +278,11 @@ typedef struct dhd_info {
 	struct work_struct    tx_compl_dispatcher_work;
 	struct work_struct    tx_dispatcher_work;
 	struct work_struct    rx_compl_dispatcher_work;
+
+	/* Emergency queue to hold pkts when flow control is enabled and
+	 * same pkts will be posted back to the dongle till flow control is disabled.
+	*/
+	struct sk_buff_head   rx_emerge_queue	____cacheline_aligned;
 
 	/* Number of times DPC Tasklet ran */
 	uint32	dhd_dpc_cnt;
@@ -350,7 +382,12 @@ typedef struct dhd_info {
 	uint32 *rxc_hist[HIST_BIN_SIZE];
 	struct kobject dhd_lb_kobj;
 	bool dhd_lb_candidacy_override;
+	enum cpuhp_state dhd_cpuhp_state;
 #endif /* DHD_LB */
+
+	/* DPC bounds sysfs */
+	struct kobject dhd_dpc_bounds_kobj;
+
 #if defined(DNGL_AXI_ERROR_LOGGING) && defined(DHD_USE_WQ_FOR_DNGL_AXI_ERROR)
 	struct work_struct	  axi_error_dispatcher_work;
 #endif /* DNGL_AXI_ERROR_LOGGING && DHD_USE_WQ_FOR_DNGL_AXI_ERROR */
@@ -362,24 +399,20 @@ typedef struct dhd_info {
 #endif /* DHD_USE_KTHREAD_FOR_LOGTRACE */
 #endif /* SHOW_LOGTRACE */
 
-#ifdef BTLOG
-	struct work_struct	  bt_log_dispatcher_work;
-#endif /* SHOW_LOGTRACE */
 #ifdef EWP_EDL
 	struct delayed_work edl_dispatcher_work;
 #endif
 #if defined(WLAN_ACCEL_BOOT)
-	int fs_check_retry;
-	struct delayed_work wl_accel_work;
 	bool wl_accel_force_reg_on;
-	bool wl_accel_boot_on_done;
 #endif
 #if defined(BCM_DNGL_EMBEDIMAGE) || defined(BCM_REQUEST_FW)
 #if defined(BCMDBUS)
 	struct task_struct *fw_download_task;
 	struct semaphore fw_download_lock;
+	bool fw_download_thread_exit;
 #endif /* BCMDBUS */
 #endif /* defined(BCM_DNGL_EMBEDIMAGE) || defined(BCM_REQUEST_FW) */
+	uint32 flag_kobj;    /* Add for duplicate kobj processing */
 	struct kobject dhd_kobj;
 	timer_list_compat_t timesync_timer;
 #if defined(BT_OVER_SDIO)
@@ -395,7 +428,7 @@ typedef struct dhd_info {
 	uint host_radiotap_conv;
 #endif /* HOST_RADIOTAP_CONV */
 #endif /* WL_MONITOR */
-#if defined (BT_OVER_SDIO)
+#if defined(BT_OVER_SDIO)
     struct mutex bus_user_lock; /* lock for sdio bus apis shared between WLAN & BT */
     int     bus_user_count; /* User counts of sdio bus shared between WLAN & BT */
 #endif /* BT_OVER_SDIO */
@@ -406,27 +439,13 @@ typedef struct dhd_info {
 	struct workqueue_struct *tx_wq;
 	struct workqueue_struct *rx_wq;
 #endif /* DHD_PCIE_NATIVE_RUNTIMEPM */
-#ifdef BTLOG
-	struct sk_buff_head   bt_log_queue     ____cacheline_aligned;
-#endif	/* BTLOG */
 #ifdef PCIE_INB_DW
 	wait_queue_head_t ds_exit_wait;
 #endif /* PCIE_INB_DW */
 #ifdef DHD_DEBUG_UART
 	bool duart_execute;
 #endif	/* DHD_DEBUG_UART */
-#ifdef BT_OVER_PCIE
-	struct mutex quiesce_flr_lock;
-	struct mutex quiesce_lock;
-	enum dhd_bus_quiesce_state dhd_quiesce_state;
-#endif /* BT_OVER_PCIE */
 	struct mutex logdump_lock;
-#if defined(GDB_PROXY) && defined(PCIE_FULL_DONGLE) && defined(BCMINTERNAL)
-	/* Root directory for GDB Proxy's (proc)fs files, used by first (default) interface */
-	struct proc_dir_entry *gdb_proxy_fs_root;
-	/* Name of procfs root directory */
-	char gdb_proxy_fs_root_name[100];
-#endif /* defined(GDB_PROXY) && defined(PCIE_FULL_DONGLE) && defined(BCMINTERNAL) */
 #if defined(DHD_MQ) && defined(DHD_MQ_STATS)
 	uint64 pktcnt_qac_histo[MQ_MAX_QUEUES][AC_COUNT];
 	uint64 pktcnt_per_ac[AC_COUNT];
@@ -434,18 +453,55 @@ typedef struct dhd_info {
 #endif /* DHD_MQ && DHD_MQ_STATS */
 	/* indicates mem_dump was scheduled as work queue or called directly */
 	bool scheduled_memdump;
-#ifdef DHD_PKTTS
-	bool latency; /* pktts enab flag */
-	pktts_flow_t config[PKTTS_CONFIG_MAX]; /* pktts user config */
-#endif /* DHD_PKTTS */
 	struct work_struct dhd_hang_process_work;
-#ifdef DHD_HP2P
-	spinlock_t	hp2p_lock;
-#endif /* DHD_HP2P */
-#ifdef DHD_QOS_ON_SOCK_FLOW
-	struct dhd_sock_qos_info *psk_qos;
+#ifdef WL_CFGVENDOR_SEND_ALERT_EVENT
+	struct work_struct dhd_alert_process_work;
+#endif /* WL_CFGVENDOR_SEND_ALERT_EVENT */
+#ifdef RX_PKT_POOL
+	pkt_pool_t rx_pkt_pool;
+	tsk_ctl_t rx_pktpool_thread;
 #endif
+#if defined(DHD_FILE_DUMP_EVENT) && defined(DHD_FW_COREDUMP)
+	osl_atomic_t dump_status;
+	struct work_struct dhd_dump_proc_work;
+#endif /* DHD_FILE_DUMP_EVENT && DHD_FW_COREDUMP */
+#if defined(DHD_HWTSTAMP) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30))
+	struct hwtstamp_config stmpconf;
+#endif /* defined(DHD_HWTSTAMP) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30)) */
+
+#ifdef ARP_CHECK_SUPPORT
+	/* variable for ARP check functions */
+	bool arp_check_enable; /* Need to enable it in config file */
+	bool arp_trigger_start; /*set it for ARP req trigger */
+	bool arp_check_timer_valid;
+	uint arp_check_interval;
+	uint arp_check_timeout;
+	u32 gw_ipaddr; /* Saved gateway for Wlan0 */
+	timer_list_compat_t arp_check_timer;
+	u32 local_ipaddr; /* save local ip addr to send ARP req */
+	uint arp_tick_cnt; /* record the tick when recv ARP resp */
+	/* To send disassoc when ARP resp timeout */
+	struct delayed_work arp_disconnect_work;
+#endif /* ARP_CHECK_SUPPORT */
 } dhd_info_t;
+
+#define DHD_ARP_CHECK_INTERVAL 1000 /* ms */
+#define DHD_ARP_CHECK_TIMEOUT 30 /* tick interval *100ms */
+
+/** priv_link is the link between netdev and the dhdif and dhd_info structs. */
+typedef struct dhd_dev_priv {
+	dhd_info_t * dhd; /* cached pointer to dhd_info in netdevice priv */
+	dhd_if_t   * ifp; /* cached pointer to dhd_if in netdevice priv */
+	int          ifidx; /* interface index */
+	void       * lkup;
+} dhd_dev_priv_t;
+
+#define DHD_DEV_PRIV_SIZE       (sizeof(dhd_dev_priv_t))
+#define DHD_DEV_PRIV(dev)       ((dhd_dev_priv_t *)DEV_PRIV(dev))
+#define DHD_DEV_INFO(dev)       (((dhd_dev_priv_t *)DEV_PRIV(dev))->dhd)
+#define DHD_DEV_IFP(dev)        (((dhd_dev_priv_t *)DEV_PRIV(dev))->ifp)
+#define DHD_DEV_IFIDX(dev)      (((dhd_dev_priv_t *)DEV_PRIV(dev))->ifidx)
+#define DHD_DEV_LKUP(dev)		(((dhd_dev_priv_t *)DEV_PRIV(dev))->lkup)
 
 #ifdef WL_MONITOR
 #define MONPKT_EXTRA_LEN	48u
@@ -469,7 +525,10 @@ void dhd_lb_tx_handler(unsigned long data);
 #endif /* DHD_LB_TXP */
 
 #if defined(DHD_LB_RXP)
+/* DHD load balancing: deferral of work to another online CPU */
 int dhd_napi_poll(struct napi_struct *napi, int budget);
+extern void dhd_rx_emerge_enqueue(dhd_pub_t *dhdp, void *pkt);
+extern void* dhd_rx_emerge_dequeue(dhd_pub_t *dhdp);
 void dhd_rx_napi_dispatcher_work(struct work_struct * work);
 void dhd_lb_rx_napi_dispatch(dhd_pub_t *dhdp);
 void dhd_lb_rx_pkt_enqueue(dhd_pub_t *dhdp, void *pkt, int ifidx);
@@ -493,15 +552,23 @@ int dhd_register_cpuhp_callback(dhd_info_t *dhd);
 int dhd_unregister_cpuhp_callback(dhd_info_t *dhd);
 #endif /* DHD_LB */
 
-#if defined(DHD_CONTROL_PCIE_CPUCORE_WIFI_TURNON)
+#ifdef RX_PKT_POOL
+void dhd_rx_pktpool_init(dhd_info_t *dhd);
+void dhd_rx_pktpool_deinit(dhd_info_t *dhd);
+#endif /* RX_PKT_POOL */
+
+#if defined(SET_PCIE_IRQ_CPU_CORE) || defined(DHD_CONTROL_PCIE_CPUCORE_WIFI_TURNON)
 void dhd_irq_set_affinity(dhd_pub_t *dhdp, const struct cpumask *cpumask);
-#endif /* DHD_CONTROL_PCIE_CPUCORE_WIFI_TURNON */
+#endif /* SET_PCIE_IRQ_CPU_CORE ||  DHD_CONTROL_PCIE_CPUCORE_WIFI_TURNON */
+
+void dhd_flush_logtrace_process(dhd_info_t *dhd);
+
 #ifdef DHD_SSSR_DUMP
 extern uint sssr_enab;
 extern uint fis_enab;
 #endif /* DHD_SSSR_DUMP */
 
-#if defined(ANDROID_VERSION) && (LINUX_VERSION_CODE  >= KERNEL_VERSION(4, 19, 0))
+#if (ANDROID_VERSION > 0) && (LINUX_VERSION_CODE  >= KERNEL_VERSION(4, 14, 0))
 #define WAKELOCK_BACKPORT
 #endif
 
@@ -523,9 +590,11 @@ do { \
 } while (0);
 #define dhd_wake_lock(wakeup_source)			__pm_stay_awake(wakeup_source)
 #define dhd_wake_unlock(wakeup_source)			__pm_relax(wakeup_source)
-#define dhd_wake_lock_active(wakeup_source)		((wakeup_source)?((wakeup_source)->active):0)
+#define dhd_wake_lock_active(wakeup_source)		((wakeup_source)->active)
 #define dhd_wake_lock_timeout(wakeup_source, timeout)	\
 	__pm_wakeup_event(wakeup_source, jiffies_to_msecs(timeout))
 #endif /* CONFIG_HAS_WAKELOCK */
+
+extern int _dhd_set_mac_address(dhd_info_t *dhd, int ifidx, uint8 *addr, bool skip_stop);
 
 #endif /* __DHD_LINUX_PRIV_H__ */

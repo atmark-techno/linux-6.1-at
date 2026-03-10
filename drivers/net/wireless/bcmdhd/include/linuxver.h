@@ -2,7 +2,26 @@
  * Linux-specific abstractions to gain some independence from linux kernel versions.
  * Pave over some 2.2 versus 2.4 versus 2.6 kernel differences.
  *
- * Copyright (C) 2020, Broadcom.
+ * Copyright (C) 2026 Synaptics Incorporated. All rights reserved.
+ *
+ * This software is licensed to you under the terms of the
+ * GNU General Public License version 2 (the "GPL") with Broadcom special exception.
+ *
+ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
+ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
+ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
+ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION
+ * DOES NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES,
+ * SYNAPTICS' TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT
+ * EXCEED ONE HUNDRED U.S. DOLLARS
+ *
+ * Copyright (C) 2026, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -42,6 +61,23 @@
 
 #include <typedefs.h>
 #include <linux/version.h>
+
+#define KERNEL_MAJOR	(LINUX_VERSION_CODE >> 16)
+#define KERNEL_MINOR	((LINUX_VERSION_CODE >> 8) & 0xFF)
+#define KERNEL_PATCH	(LINUX_VERSION_CODE & 0xFF)
+#ifdef CONFIG_64BIT
+#define KERNEL_BITS	"64bits"
+#else
+#define KERNEL_BITS	"32bits"
+#endif
+
+#ifndef RHEL_RELEASE_CODE
+#define RHEL_RELEASE_CODE	(0)
+#endif
+#ifndef RHEL_RELEASE_VERSION
+#define RHEL_RELEASE_VERSION(a, b)	(((a) << 8) + (b))
+#endif
+
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0))
 #include <linux/config.h>
 #else
@@ -149,7 +185,8 @@
 #define	MY_INIT_WORK(_work, _func)	INIT_WORK(_work, _func)
 #else
 #define	MY_INIT_WORK(_work, _func)	INIT_WORK(_work, _func, _work)
-#if (!(LINUX_VERSION_CODE == KERNEL_VERSION(2, 6, 18) && defined(RHEL_MAJOR) && (RHEL_MAJOR == 5)))
+#if !(LINUX_VERSION_CODE == KERNEL_VERSION(2, 6, 18) && defined(RHEL_MAJOR) && \
+	(RHEL_MAJOR == 5))
 /* Exclude RHEL 5 */
 typedef void (*work_func_t)(void *work);
 #endif
@@ -192,7 +229,7 @@ typedef irqreturn_t(*FN_ISR) (int irq, void *dev_id, struct pt_regs *ptregs);
 #include <uapi/linux/sched/types.h>
 #endif /* LINUX_VERS >= 4.11.0 */
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)) && (LINUX_VERSION_CODE < KERNEL_VERSION(6, 13, 0))
 #include <net/lib80211.h>
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)
@@ -351,11 +388,13 @@ static inline void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
 	}
 	return ret;
 }
+
 static inline void pci_free_consistent(struct pci_dev *hwdev, size_t size,
                                        void *vaddr, dma_addr_t dma_handle)
 {
 	free_pages((unsigned long)vaddr, get_order(size));
 }
+
 #ifdef ILSIM
 extern uint pci_map_single(void *dev, void *va, uint size, int direction);
 extern void pci_unmap_single(void *dev, uint pa, uint size, int direction);
@@ -394,10 +433,15 @@ extern void timer_cb_compat(struct timer_list *tl);
 #define timer_set_private(timer_compat, priv) (timer_compat)->arg = priv
 #define timer_expires(timer_compat) (timer_compat)->timer.expires
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+#define del_timer_sync(t) timer_delete_sync(&((t)->timer))
+#define del_timer(t) del_timer_sync(t)
+#else
 #define del_timer(t) del_timer(&((t)->timer))
 #ifndef del_timer_sync
 #define del_timer_sync(t) del_timer_sync(&((t)->timer))
-#endif
+#endif /* del_timer_sync */
+#endif /* LINUX_VER >= 6.15.0 */
 #define timer_pending(t) timer_pending(&((t)->timer))
 #define add_timer(t) add_timer(&((t)->timer))
 #define mod_timer(t, j) mod_timer(&((t)->timer), j)
@@ -471,6 +515,7 @@ static inline void tasklet_init(struct tasklet_struct *tasklet,
 	tasklet->routine = (void (*)(void *))func;
 	tasklet->data = (void *)data;
 }
+
 #define tasklet_kill(tasklet)	{ do {} while (0); }
 
 /* 2.4.x introduced del_timer_sync() */
@@ -592,6 +637,21 @@ pci_restore_state(struct pci_dev *dev, u32 *buffer)
 #endif
 #endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3, 1, 0) */
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0)
+#define DEV_CHANGE_FLAGS(ndev, flags)    dev_change_flags((ndev), flags)
+#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0) */
+#define DEV_CHANGE_FLAGS(ndev, flags)    dev_change_flags((ndev), flags, NULL)
+#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0) */
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
+#define DEV_ADDR_SET(ndev, mac_addr)    (void)memcpy_s(((ndev)->dev_addr), \
+	ETHER_ADDR_LEN, mac_addr, ETHER_ADDR_LEN)
+#else /* LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0) */
+#define DEV_ADDR_SET(ndev, mac_addr)    dev_addr_set(ndev, (const u8*)mac_addr)
+#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0) */
+#define DEV_ADDR_GET(ndev, pBuf)        (void)memcpy_s(pBuf, \
+	ETHER_ADDR_LEN, ((ndev)->dev_addr), ETHER_ADDR_LEN)
+
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0))
 /* struct packet_type redefined in 2.6.x */
 #define af_packet_priv			data
@@ -645,11 +705,21 @@ extern char* dhd_dbg_get_system_timestamp(void);
 #endif
 #define DHD_LOG_PREFIXS DHD_LOG_PREFIX" "
 #ifdef DHD_DEBUG
+#ifndef CUSTOM_PREFIX
 #define	printf_thr(fmt, args...)	printk(PERCENT_S DHD_LOG_PREFIXS fmt, PRINTF_SYSTEM_TIME, ## args)
 #define DBG_THR(args)		do {printf_thr args;} while (0)
 #else
+extern char* osl_get_rtctime(void);
+#define DBG_THR_PREFIX "[%s]"CUSTOM_PREFIX, osl_get_rtctime()
+#define DBG_THR(x)	\
+do {	\
+	pr_cont(DBG_THR_PREFIX);	\
+	pr_cont x;			\
+} while (0)
+#endif /* !CUSTOM_PREFIX */
+#else
 #define DBG_THR(x)
-#endif
+#endif /* DHD_DEBUG */
 
 extern unsigned long osl_spin_lock(void *lock);
 extern void osl_spin_unlock(void *lock, unsigned long flags);
@@ -695,12 +765,18 @@ static inline bool binary_sema_up(tsk_ctl_t *tsk)
 	return sem_up;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0))
+#if  (LINUX_VERSION_CODE > KERNEL_VERSION(5, 6, 0))
 #define SMP_RD_BARRIER_DEPENDS(x)
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0))
 #define SMP_RD_BARRIER_DEPENDS(x) smp_read_barrier_depends(x)
 #else
 #define SMP_RD_BARRIER_DEPENDS(x) smp_rmb(x)
+#endif
+
+#ifdef BCMPCIE
+#define NAME_SUFFIX "_pcie"
+#else
+#define NAME_SUFFIX "_sdio"
 #endif
 
 #define PROC_START(thread_func, owner, tsk_ctl, flags, name) \
@@ -709,11 +785,12 @@ static inline bool binary_sema_up(tsk_ctl_t *tsk)
 	init_completion(&((tsk_ctl)->completed)); \
 	init_completion(&((tsk_ctl)->flushed)); \
 	(tsk_ctl)->parent = owner; \
-	(tsk_ctl)->proc_name = name;  \
+	(tsk_ctl)->proc_name = name NAME_SUFFIX;  \
 	(tsk_ctl)->terminated = FALSE; \
 	(tsk_ctl)->flush_ind = FALSE; \
 	(tsk_ctl)->up_cnt = 0; \
-	(tsk_ctl)->p_task  = kthread_run(thread_func, tsk_ctl, (char*)name); \
+	(tsk_ctl)->p_task  = kthread_run(thread_func, \
+		tsk_ctl, "%s%s", (char*)(name), NAME_SUFFIX); \
 	if (IS_ERR((tsk_ctl)->p_task)) { \
 		(tsk_ctl)->thr_pid = -1; \
 		DBG_THR(("%s(): thread:%s create failed\n", __FUNCTION__, \
@@ -791,6 +868,10 @@ static inline bool binary_sema_up(tsk_ctl_t *tsk)
 		DBG_THR(("%s(): thread:%s:%lx flushed OK\n", __FUNCTION__, \
 			 (tsk_ctl)->proc_name, (tsk_ctl)->thr_pid)); \
 }
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 0))
+#define complete_and_exit    kthread_complete_and_exit
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 0) */
 
 /*  ----------------------- */
 
@@ -889,21 +970,19 @@ not match our unaligned address for < 2.6.24
 
 #define KMALLOC_FLAG (CAN_SLEEP() ? GFP_KERNEL: GFP_ATOMIC)
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 170))
-#define RANDOM32	get_random_u32
-#define RANDOM_BYTES    get_random_bytes
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+#define RANDOM32		get_random_u32
+#define RANDOM_BYTES		get_random_bytes
+#define SRANDOM32(entropy)	do { uint _entropy = (entropy); \
+	add_device_randomness(&_entropy, sizeof(uint)); } while (0)
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
-#define RANDOM32	prandom_u32
-#define RANDOM_BYTES    prandom_bytes
-#else
-#define RANDOM32	random32
-#define RANDOM_BYTES    get_random_bytes
-#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0) */
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
-#define SRANDOM32(entropy)	prandom_seed(entropy)
-#else
-#define SRANDOM32(entropy)	srandom32(entropy)
+#define RANDOM32		prandom_u32
+#define RANDOM_BYTES		prandom_bytes
+#define SRANDOM32		prandom_seed
+#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0) */
+#define RANDOM32		random32
+#define RANDOM_BYTES		get_random_bytes
+#define SRANDOM32		srandom32
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0) */
 
 /*
@@ -937,6 +1016,13 @@ static inline struct inode *file_inode(const struct file *f)
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0) */
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
+// New google android GKI not allow kernel_write/kernel_read, and use
+// below for temporary overcome, and waiting for get rid of that for future
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 13, 0)
+MODULE_IMPORT_NS("VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver");
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
+#endif // LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
 #define vfs_write(fp, buf, len, pos) kernel_write(fp, buf, len, pos)
 #define vfs_read(fp, buf, len, pos) kernel_read(fp, buf, len, pos)
 int kernel_read_compat(struct file *file, loff_t offset, char *addr, unsigned long count);
@@ -944,18 +1030,83 @@ int kernel_read_compat(struct file *file, loff_t offset, char *addr, unsigned lo
 #define kernel_read_compat(file, offset, addr, count) kernel_read(file, offset, addr, count)
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0) */
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
+#define timespec64 timespec
+#define ktime_get_real_ts64(timespec) ktime_get_real_ts(timespec)
+#define ktime_to_timespec64(timespec) ktime_to_timespec(timespec)
+#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0) */
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 0)) && (LINUX_VERSION_CODE >= \
+	KERNEL_VERSION(4, 20, 0))
+static inline void get_monotonic_boottime(struct timespec *ts)
+{
+	*ts = ktime_to_timespec(ktime_get_boottime());
+}
+#endif /* LINUX_VER >= 4.20 */
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 0)) && (LINUX_VERSION_CODE >= \
+	KERNEL_VERSION(5, 0, 0))
+static inline void do_gettimeofday(struct timeval *tv)
+{
+	struct timespec64 now;
+
+	ktime_get_real_ts64(&now);
+	tv->tv_sec = now.tv_sec;
+	tv->tv_usec = now.tv_nsec/1000;
+}
+#endif /* LINUX_VER >= 5.0 */
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))
+#define GETFS_AND_SETFS_TO_KERNEL_DS(fs) \
+{ \
+	fs = get_fs(); \
+	set_fs(KERNEL_DS); \
+}
+
+#define SETFS(fs) set_fs(fs)
+#else
+/* From 5.10 kernel get/set_fs are obsolete and direct kernel_read/write operations can be used */
+#define GETFS_AND_SETFS_TO_KERNEL_DS(fs) BCM_REFERENCE(fs)
+#define SETFS(fs) BCM_REFERENCE(fs)
+#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0) */
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0))
 #include <linux/sched/clock.h>
 #endif /* (LINUX_VERSION_CODE < KERNEL_VERSION(6, 3, 0)) */
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 0))
+#define PDE_DATA(inode)		pde_data(inode)
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
+/* already has the Macro definition */
+#else /* (LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)) */
+#define PDE_DATA(inode)		NULL
+#endif /* (LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)) */
+
+#ifdef ANDROID_BKPORT
+#if (ANDROID_VERSION >= 13) && (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 41))
+#define ANDROID13_KERNEL515_BKPORT
+#define CFG80211_BKPORT_MLO
+#endif /* ANDROID_VERSION >= 13 && KERNEL >= 5.15.41 */
+#endif /* ANDROID_BKPORT */
+
+#if ANDROID_VERSION >= 12
+/* Start from Android 12, nl80211_refresh_mac() will be refresh even wlan0 at up state currently in
+ * wpa_driver_nl80211_event_rtm_newlink, so DHD_NOTIFY_MAC_CHANGED is not needed to use
+ * dev_close()/dev_open() to notify wpa_supplicant.
+ */
+#undef DHD_NOTIFY_MAC_CHANGED
+#endif /* ANDROID_VERSION >= 13 */
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 2) || \
+	defined(CFG80211_BKPORT_MLO)
+#define	WDEV_CLIENT(wdev, field)	(wdev->u.client.field)
+#else
+#define	WDEV_CLIENT(wdev, field)	(wdev->field)
+#endif /* LINUX_VER >= 5.19.2 || CFG80211_BKPORT_MLO */
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 32)
 #define netdev_tx_t int
 #endif
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 0))
-#define complete_and_exit(a, b) kthread_complete_and_exit(a, b)
-#else
-#define	dev_addr_set(net, addr) memcpy(net->dev_addr, addr, ETHER_ADDR_LEN)
-#endif /* LINUX_VERSION_CODE > KERNEL_VERSION(5, 17, 0) */
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0))
 #define netif_rx_ni(skb) netif_rx(skb)
 #define pci_free_consistent(a, b, c, d) dma_free_coherent(&((struct pci_dev *)a)->dev, b, c, d)
@@ -968,11 +1119,21 @@ int kernel_read_compat(struct file *file, loff_t offset, char *addr, unsigned lo
 #endif
 #endif
 
-#ifdef ANDROID_BKPORT
-#if (ANDROID_VERSION >= 13) && (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 41))
-#define ANDROID13_KERNEL515_BKPORT
-#define CFG80211_BKPORT_MLO
-#endif /* ANDROID_VERSION >= 13 && KERNEL >= 5.15.41 */
-#endif /* ANDROID_BKPORT */
+#if !defined(FREEBSD) && !defined(MACOSX) && !defined(BCM_USE_PLATFORM_STRLCPY)
+#include <bcmstdlib_s.h>
+#else
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0))
+#define strlcpy(a, b, c)	strscpy(a, b, c)
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0) */
+#endif /* !defined(FREEBSD) && !defined(MACOSX) && !defined(BCM_USE_PLATFORM_STRLCPY) */
+
+/* DHD_USE_KMEM_CACHE_USERCOPY is to fix for "kernel BUG at mm/usercopy.c:102!" due to
+  * folio_size(folio) is always return PAGE_SIZE(4096) in check_heap_object(), this issue only happened
+  * when CONFIG_HARDENED_USERCOPY enabled and check_heap_object() is modified from kernel 5.19,
+  * so use these 2 conditions to undefine DHD_USE_KMEM_CACHE_USERCOPY
+  */
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 19, 0)) || !defined(CONFIG_HARDENED_USERCOPY)
+#undef DHD_USE_KMEM_CACHE_USERCOPY
+#endif /* (LINUX_VERSION_CODE < KERNEL_VERSION(5, 19, 0)) || !defined(CONFIG_HARDENED_USERCOPY) */
 
 #endif /* _linuxver_h_ */

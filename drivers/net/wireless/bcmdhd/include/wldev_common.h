@@ -1,7 +1,26 @@
 /*
  * Common function shared by Linux WEXT, cfg80211 and p2p drivers
  *
- * Copyright (C) 2020, Broadcom.
+ * Copyright (C) 2026 Synaptics Incorporated. All rights reserved.
+ *
+ * This software is licensed to you under the terms of the
+ * GNU General Public License version 2 (the "GPL") with Broadcom special exception.
+ *
+ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
+ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
+ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
+ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
+ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION
+ * DOES NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES,
+ * SYNAPTICS' TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT
+ * EXCEED ONE HUNDRED U.S. DOLLARS
+ *
+ * Copyright (C) 2026, Broadcom.
  *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -86,6 +105,14 @@ s32 wldev_iovar_getint_bsscfg(
 s32 wldev_iovar_setint_bsscfg(
 	struct net_device *dev, s8 *iovar, s32 val, s32 bssidx);
 
+#if defined(BCMDONGLEHOST) && defined(WL_CFG80211)
+extern s32 wldev_iovar_no_wl(struct net_device *dev, s8 *iovar, s8 *param_buf,
+		u32 param_len, s8 *res_buf, u32 res_len, bool set);
+extern s32 wldev_ioctl_no_wl(struct net_device *dev, u32 cmd, s8 *buf, u32 len, bool set);
+extern s32 wldev_iovar_setint_no_wl(struct net_device *dev, s8 *iovar, s32 val);
+extern s32 wldev_iovar_getint_no_wl(struct net_device *dev, s8 *iovar, s32 *val);
+#endif /* BCMDONGLEHOST && WL_CFG80211 */
+
 extern int dhd_net_set_fw_path(struct net_device *dev, char *fw);
 extern int dhd_net_bus_suspend(struct net_device *dev);
 extern int dhd_net_bus_resume(struct net_device *dev, uint8 stage);
@@ -95,9 +122,7 @@ extern void dhd_get_customized_country_code(struct net_device *dev, char *countr
 	wl_country_t *cspec);
 extern void dhd_bus_country_set(struct net_device *dev, wl_country_t *cspec, bool notify);
 
-#ifdef OEM_ANDROID
 extern bool dhd_force_country_change(struct net_device *dev);
-#endif
 
 extern void dhd_bus_band_set(struct net_device *dev, uint band);
 extern int wldev_set_country(struct net_device *dev, char *country_code, bool notify,
@@ -115,10 +140,8 @@ extern int net_os_set_max_dtim_enable(struct net_device *dev, int val);
 extern int net_os_set_disable_dtim_in_suspend(struct net_device *dev, int val);
 #endif /* DISABLE_DTIM_IN_SUSPEND */
 
-#if defined(OEM_ANDROID)
 extern int wl_parse_ssid_list_tlv(char** list_str, wlc_ssid_ext_t* ssid,
 	int max, int *bytes_left);
-#endif /* defined(OEM_ANDROID) */
 
 /* Get the link speed from dongle, speed is in kpbs */
 int wldev_get_link_speed(struct net_device *dev, int *plink_speed);
