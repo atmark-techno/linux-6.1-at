@@ -52,8 +52,7 @@ DHDCFLAGS = -Wall -Wstrict-prototypes -Wno-date-time                      \
 	-DUSE_NEW_RSPEC_DEFS                                                  \
 	-DWL_EXT_IAPSTA -DWL_ESCAN -DCCODE_LIST -DSUSPEND_EVENT               \
 	-DKEY_INSTALL_CHECK                                                   \
-	-DENABLE_INSMOD_NO_FW_LOAD -DWLWSEC                                   \
-	-DWAKEUP_KSOFTIRQD_POST_NAPI_SCHEDULE
+	-DENABLE_INSMOD_NO_FW_LOAD
 
 DHDOFILES = aiutils.o siutils.o sbutils.o                                 \
 	bcmutils.o bcmwifi_channels.o bcmxtlv.o bcm_app_utils.o bcmstdlib_s.o \
@@ -408,11 +407,12 @@ ifeq ($(CONFIG_BCMDHD_REQUEST_FW),y)
 	DHDCFLAGS += -DDHD_NVRAM_NAME="\"nvram.txt\""
 	DHDCFLAGS += -DDHD_CLM_NAME="\"clm_bcmdhd.blob\""
 else
-	# Use firmwares embedded in CONFIG_EXTRA_FIRMWARE
-	DHDCFLAGS += -DDHD_LINUX_STD_FW_API
-	DHDCFLAGS += -DDHD_FW_NAME=\"bcmdhd/fw_bcm43752a2_pcie_ag_apsta.bin\"
-	DHDCFLAGS += -DDHD_NVRAM_NAME=\"bcmdhd/nvram_ap6275p_mp.txt\"
-	DHDCFLAGS += -DDHD_CLM_NAME=\"bcmdhd/clm_bcm43752a2_pcie_ag.blob\"
+	DHDCFLAGS += -DDHD_SUPPORT_VFS_CALL
+ifeq ($(CONFIG_BCMDHD_FW_PATH),)
+	DHDCFLAGS += -DCONFIG_BCMDHD_FW_PATH="\"/lib/firmware/bcmdhd/fw_bcmdhd.bin\""
+	DHDCFLAGS += -DCONFIG_BCMDHD_NVRAM_PATH="\"/lib/firmware/bcmdhd/nvram.txt\""
+	DHDCFLAGS += -DCONFIG_BCMDHD_CLM_PATH="\"/lib/firmware/bcmdhd/clm_bcmdhd.blob\""
+endif
 endif
 
 ifeq ($(CONFIG_BCMDHD_AG),y)
@@ -440,7 +440,7 @@ endif
 endif
 
 ARCH ?= arm64
-BCMDHD_ROOT = $(srctree)/$(src)
+BCMDHD_ROOT = $(src)
 #$(warning "BCMDHD_ROOT=$(BCMDHD_ROOT)")
 EXTRA_CFLAGS = $(DHDCFLAGS)
 EXTRA_CFLAGS += -DDHD_COMPILED=\"$(BCMDHD_ROOT)\"

@@ -36,34 +36,31 @@
 #include <linux/mmc/sdio_func.h>
 #endif /* defined(BCMSDIO) */
 #endif
-#ifdef CONFIG_OF
-#include <linux/of.h>
-#endif
 
 /* message levels */
 #define CONFIG_ERROR_LEVEL	(1 << 0)
-#define CONFIG_TRACE_LEVEL	(1 << 2)
-#define CONFIG_MSG_LEVEL	(1 << 1)
+#define CONFIG_TRACE_LEVEL	(1 << 1)
+#define CONFIG_MSG_LEVEL	(1 << 0)
 
-uint config_msg_level = CONFIG_ERROR_LEVEL;
+uint config_msg_level = CONFIG_ERROR_LEVEL | CONFIG_MSG_LEVEL;
 uint dump_msg_level = 0;
 
 #define CONFIG_MSG(x, args...) \
 	do { \
 		if (config_msg_level & CONFIG_MSG_LEVEL) { \
-			pr_info("%s : " x, __func__, ## args); \
+			printf("%s : " x, __func__, ## args); \
 		} \
 	} while (0)
 #define CONFIG_ERROR(x, args...) \
 	do { \
 		if (config_msg_level & CONFIG_ERROR_LEVEL) { \
-			pr_err("CONFIG-ERROR) %s : " x, __func__, ## args); \
+			printf("CONFIG-ERROR) %s : " x, __func__, ## args); \
 		} \
 	} while (0)
 #define CONFIG_TRACE(x, args...) \
 	do { \
 		if (config_msg_level & CONFIG_TRACE_LEVEL) { \
-			pr_debug("CONFIG-TRACE) %s : " x, __func__, ## args); \
+			printf("CONFIG-TRACE) %s : " x, __func__, ## args); \
 		} \
 	} while (0)
 
@@ -1454,10 +1451,6 @@ dhd_conf_set_path_params(dhd_pub_t *dhd, char *fw_path, char *nv_path)
 	CONFIG_MSG("Final conf_path=%s\n", dhd->conf_path);
 
 	dhd_conf_read_config(dhd, dhd->conf_path);
-#ifdef CONFIG_OF
-	/* Override settings in config file if of_node is present */
-	dhd_conf_read_config_dt(dhd);
-#endif
 #ifdef DHD_TPUT_PATCH
 	dhd_conf_dump_tput_patch(dhd);
 #endif
@@ -4972,46 +4965,6 @@ err:
 
 	return bcmerror;
 }
-
-#ifdef CONFIG_OF
-void
-dhd_conf_read_config_dt(dhd_pub_t *dhd)
-{
-	struct device_node *np;
-	struct property *prop;
-	const char *data;
-	char *bufp;
-
-	bufp = MALLOC(dhd->osh, MAXSZ_BUF);
-	if (!bufp) {
-		CONFIG_ERROR("Failed to allocate memory %d bytes\n", MAXSZ_BUF);
-		return;
-	}
-
-	np = of_find_node_by_name(NULL, "bcmdhd-configs");
-	if (!np) {
-		CONFIG_MSG("Could not find node for bcmdhd-configs\n");
-		goto fail;
-	}
-
-	for_each_property_of_node(np, prop) {
-		if (of_property_read_string(np, prop->name, &data))
-			continue;
-
-		snprintf(bufp, MAXSZ_BUF, "%s=%s", prop->name, data);
-		if (!strcmp(prop->name, "ccode") ||
-		    !strcmp(prop->name, "regrev") ||
-		    !strcmp(prop->name, "country_list"))
-			dhd_conf_read_country(dhd, bufp, strlen(prop->name) + 1);
-	}
-
-	of_node_put(np);
-
-fail:
-	if (bufp)
-		MFREE(dhd->osh, bufp, MAXSZ_BUF);
-}
-#endif
 
 #if defined(BCMSDIO) || defined(BCMPCIE)
 void
