@@ -2738,7 +2738,7 @@ wl_ext_roam_off(struct net_device *dev, char *cmd, char *data,
 	struct dhd_pub *dhd = dhd_get_pub(dev);
 	struct dhd_conf *conf = dhd->conf;
 	int ifidx = dhd_net2idx(dhd->info, dev);
-	int ret = 0, val;
+	int ret = 0, val = 0;
 
 	if (data) {
 		if (!strcmp(cmd, "roam_off"))

@@ -432,9 +432,8 @@ dev_wlc_intvar_get(
 	int error;
 
 	uint len;
-	uint data_null;
 
-	len = bcm_mkiovar(name, (char *)(&data_null), 0, (char *)(&var), sizeof(var.buf));
+	len = bcm_mkiovar(name, NULL, 0, (char *)(&var), sizeof(var.buf));
 	ASSERT(len);
 	error = dev_wlc_ioctl(dev, WLC_GET_VAR, (void *)&var, len);
 
