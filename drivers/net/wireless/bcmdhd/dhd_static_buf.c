@@ -16,8 +16,8 @@
 #endif
 #define STATIC_ERROR_LEVEL	BIT(0)
 #define STATIC_TRACE_LEVEL	BIT(1)
-#define STATIC_MSG_LEVEL	BIT(0)
-uint static_msg_level = STATIC_ERROR_LEVEL | STATIC_MSG_LEVEL;
+#define STATIC_MSG_LEVEL	BIT(2)
+uint static_msg_level = STATIC_ERROR_LEVEL;
 
 #define DHD_STATIC_MSG(x, args...) \
 do { \

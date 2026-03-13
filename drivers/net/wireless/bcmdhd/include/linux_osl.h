@@ -414,8 +414,14 @@ extern char* osl_get_rtctime(void);
 #define OSL_GET_RTCTIME()	osl_get_rtctime()
 /* RTC format %02d:%02d:%02d.%06lu, LEN including the trailing null space */
 #define RTC_TIME_BUF_LEN	16u
-#define	printf(fmt, args...)	printk(PERCENT_S DHD_LOG_PREFIXS fmt, PRINTF_SYSTEM_TIME, ## args)
-#define	vprintf(fmt, ap)	vprintk(fmt, ap)
+#define	printf(fmt, args...)	pr_debug(PERCENT_S DHD_LOG_PREFIXS fmt, PRINTF_SYSTEM_TIME, ## args)
+#define	vprintf(fmt, ap) ({				\
+			struct va_format _vaf = {	\
+				.fmt = (fmt),		\
+				.va = &(ap),		\
+			};				\
+			pr_debug("%pV", &_vaf);		\
+		})
 #include <linux/kernel.h>	/* for vsn/printf's */
 #include <linux/string.h>	/* for mem*, str* */
 /* bcopy's: Linux kernel doesn't provide these (anymore) */
@@ -695,8 +701,14 @@ extern void dhd_plat_l1_exit_io(void);
  * agree with me).  I may be able to even remove these references eventually with
  * a GNU binutil such as objcopy via a symbol rename (i.e. memcpy to osl_memcpy).
  */
-	#define	printf(fmt, args...)	printk(fmt , ## args)
-	#define	vprintf(fmt, ap)	vprintk(fmt, ap)
+	#define	printf(fmt, args...)	pr_debug(fmt , ## args)
+	#define	vprintf(fmt, ap) ({		\
+		struct va_format _vaf = {	\
+			.fmt = (fmt),		\
+			.va = &(ap),		\
+		};				\
+		pr_debug("%pV", &_vaf);		\
+	})
 	#include <linux/kernel.h>	/* for vsn/printf's */
 	#include <linux/string.h>	/* for mem*, str* */
 	/* bcopy's: Linux kernel doesn't provide these (anymore) */
