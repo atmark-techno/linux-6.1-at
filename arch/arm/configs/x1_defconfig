@@ -296,7 +296,7 @@ CONFIG_PCI_EPF_TEST=y
 CONFIG_DEVTMPFS=y
 CONFIG_DEVTMPFS_MOUNT=y
 # CONFIG_STANDALONE is not set
-CONFIG_EXTRA_FIRMWARE="ar3k/AthrBT_0x11020000.dfu ar3k/ramps_0x11020000_40.dfu ar3k/AthrBT_0x11020100.dfu ar3k/ramps_0x11020100_40.dfu ti-connectivity/wl18xx-conf.bin ti-connectivity/wl1271-nvs.bin ti-connectivity/wl18xx-fw-4.bin ti-connectivity/TIInit_11.8.32.bts bcmdhd/clm_bcm43752a2_pcie_ag.blob bcmdhd/fw_bcm43752a2_pcie_ag_apsta.bin bcmdhd/nvram_ap6275p_mp.txt imx/sdma/sdma-imx7d.bin regulatory.db regulatory.db.p7s"
+CONFIG_EXTRA_FIRMWARE="ar3k/AthrBT_0x11020000.dfu ar3k/ramps_0x11020000_40.dfu ar3k/AthrBT_0x11020100.dfu ar3k/ramps_0x11020100_40.dfu ti-connectivity/wl18xx-conf.bin ti-connectivity/wl1271-nvs.bin ti-connectivity/wl18xx-fw-4.bin ti-connectivity/TIInit_11.8.32.bts bcmdhd/clm_bcm43752a2_pcie_ag.blob bcmdhd/fw_bcm43752a2_pcie_ag_apsta.bin bcmdhd/nvram_ap12275_pb33.txt imx/sdma/sdma-imx7d.bin regulatory.db regulatory.db.p7s"
 CONFIG_FW_LOADER_USER_HELPER=y
 CONFIG_IMX_WEIM=y
 CONFIG_CONNECTOR=y
@@ -379,7 +379,7 @@ CONFIG_ATH9K=y
 CONFIG_ATH9K_DFS_CERTIFIED=y
 CONFIG_BCMDHD=y
 CONFIG_BCMDHD_FW_PATH="/lib/firmware/bcmdhd/fw_bcm43752a2_pcie_ag_apsta.bin"
-CONFIG_BCMDHD_NVRAM_PATH="/lib/firmware/bcmdhd/nvram_ap6275p_mp.txt"
+CONFIG_BCMDHD_NVRAM_PATH="/lib/firmware/bcmdhd/nvram_ap12275_pb33.txt"
 CONFIG_BCMDHD_PCIE=y
 CONFIG_HOSTAP=y
 # CONFIG_RTL_CARDS is not set
@@ -690,7 +690,6 @@ CONFIG_MXS_DMA=y
 CONFIG_MXC_PXP_V2=y
 CONFIG_MXC_PXP_V3=y
 CONFIG_STAGING=y
-CONFIG_R8712U=y
 CONFIG_STAGING_MEDIA=y
 CONFIG_COMMON_CLK_PWM=y
 # CONFIG_IOMMU_SUPPORT is not set
