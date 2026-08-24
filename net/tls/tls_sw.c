@@ -457,7 +457,7 @@ int tls_tx_records(struct sock *sk, int flags)
 	}
 
 tx_err:
-	if (rc < 0 && rc != -EAGAIN)
+	if (rc < 0 && rc != -EAGAIN && rc != -EINTR && rc != -ERESTARTSYS)
 		tls_err_abort(sk, rc);
 
 	return rc;
@@ -2349,6 +2349,11 @@ ssize_t tls_sw_splice_read(struct socket *sock,  loff_t *ppos,
 	err = tls_rx_reader_lock(sk, ctx, flags & SPLICE_F_NONBLOCK);
 	if (err < 0)
 		return err;
+
+	/* If crypto failed the connection is broken */
+	err = ctx->async_wait.err;
+	if (err)
+		goto splice_read_end;
 
 	if (!skb_queue_empty(&ctx->rx_list)) {
 		skb = __skb_dequeue(&ctx->rx_list);
